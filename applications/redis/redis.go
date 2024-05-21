@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/teran/go-docker-testsuite"
-	"github.com/teran/go-docker-testsuite/images"
 )
 
 type Redis interface {
@@ -17,11 +16,11 @@ type redis struct {
 	c docker.Container
 }
 
-func New(ctx context.Context) (Redis, error) {
+func New(ctx context.Context, image string) (Redis, error) {
 	c, err := docker.
 		NewContainer(
 			"redis",
-			images.Redis,
+			image,
 			nil,
 			docker.NewEnvironment(),
 			docker.
