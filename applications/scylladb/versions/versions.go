@@ -28,15 +28,23 @@ func init() {
 }
 
 func (s *testSuite) TestAll() {
-	sc, err := s.sdb.ClusterConfig("")
-	s.Require().NoError(err)
-	s.Require().NotNil(sc)
-
-	err = s.sdb.CreateKeyspace("somedb")
+	err := s.sdb.CreateKeyspace("somedb")
 	s.Require().NoError(err)
 
 	err = s.sdb.DropKeyspace("notexistentdb")
 	s.Require().Error(err)
+
+	sc, err := s.sdb.ClusterConfig("somedb")
+	s.Require().NoError(err)
+
+	session, err := sc.CreateSession()
+	s.Require().NoError(err)
+
+	err = session.Query(`CREATE TABLE testtable (id int, item text, primary key(id));`).Exec()
+	s.Require().NoError(err)
+
+	err = session.Query(`INSERT INTO testtable(id, item) VALUES (?, ?);`, 1, "test").Exec()
+	s.Require().NoError(err)
 
 	err = s.sdb.DropKeyspace("somedb")
 	s.Require().NoError(err)
