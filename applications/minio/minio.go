@@ -58,7 +58,7 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 	}
 
 	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher(
-		"Warning: The standard parity is set to 0. This can lead to data loss.",
+		"The standard parity is set to 0. This can lead to data loss.",
 	))
 	if err != nil {
 		return nil, err
