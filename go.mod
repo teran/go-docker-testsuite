@@ -13,7 +13,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	github.com/teran/echo-grpc-server v0.0.0-20240512211903-7c0d3d091c93
-	github.com/teran/go-ptr v0.0.0-20240511091554-08e88ea3119f
+	github.com/teran/go-ptr v1.1.0
 	github.com/teran/go-random v0.0.1
 	google.golang.org/grpc v1.64.0
 )
