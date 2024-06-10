@@ -7,13 +7,14 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"github.com/teran/go-docker-testsuite/applications/redis/versions"
+	"github.com/teran/go-docker-testsuite/images"
 )
 
-const image = "redis:7.0.15"
+const image = "index.docker.io/library/redis:7.0.15"
 
 func TestScyllaDBVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	suite.Run(t, versions.New(ctx, image))
+	suite.Run(t, versions.New(ctx, images.ImageName(image)))
 }
