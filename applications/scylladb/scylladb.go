@@ -33,7 +33,12 @@ func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 		NewContainer(
 			"scylladb",
 			image,
-			[]string{"--overprovisioned=1"},
+			[]string{
+				"--overprovisioned=1",
+				"--memory=1G",
+				"--smp=1",
+				"--developer-mode=1",
+			},
 			docker.NewEnvironment(),
 			docker.NewPortBindings().
 				PortDNAT(docker.ProtoTCP, 9042),
