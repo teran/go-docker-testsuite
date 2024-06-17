@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	dockerContainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
@@ -211,7 +211,7 @@ func (c *container) pullImage(ctx context.Context) error {
 	}
 
 	if isLatest || err == errImageIsNotPulled {
-		image, err := c.cli.ImagePull(ctx, c.image, types.ImagePullOptions{})
+		image, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{})
 		if err != nil {
 			return errors.Wrap(err, "error pulling image")
 		}
@@ -226,7 +226,7 @@ func (c *container) pullImage(ctx context.Context) error {
 }
 
 func (c *container) isImagePulled(ctx context.Context) error {
-	images, err := c.cli.ImageList(ctx, types.ImageListOptions{})
+	images, err := c.cli.ImageList(ctx, image.ListOptions{})
 	if err != nil {
 		return err
 	}
