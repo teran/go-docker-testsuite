@@ -75,9 +75,8 @@ func (g *group) Run(ctx context.Context) error {
 	}).Trace("creating network")
 
 	net, err := g.cli.NetworkCreate(ctx, g.name, types.NetworkCreate{
-		CheckDuplicate: true,
-		Attachable:     true,
-		Internal:       true,
+		Attachable: true,
+		Internal:   true,
 	})
 	if err != nil {
 		return err
