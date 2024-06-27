@@ -13,7 +13,7 @@ import (
 
 const image = "index.docker.io/library/postgres:13.7"
 
-func TestScyllaDBVersion(t *testing.T) {
+func TestPostgreSQLVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 

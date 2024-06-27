@@ -12,7 +12,7 @@ import (
 
 const image = "index.docker.io/library/redis:6.2.14"
 
-func TestScyllaDBVersion(t *testing.T) {
+func TestRedisVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
