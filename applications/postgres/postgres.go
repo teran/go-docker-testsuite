@@ -102,7 +102,7 @@ func (p *postgresql) DSN(db string) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("postgres://postgres@%s/%s", hp.String(), db), nil
+	return fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", hp.String(), db), nil
 }
 
 func (p *postgresql) MustDSN(db string) string {
