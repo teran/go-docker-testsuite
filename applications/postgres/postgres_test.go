@@ -27,7 +27,7 @@ func (s *postgresTestSuite) TestAll() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(dsn)
 	s.True(strings.HasPrefix(dsn, "postgres://"))
-	s.True(strings.HasSuffix(dsn, "/somedb"))
+	s.True(strings.HasSuffix(dsn, "/somedb?sslmode=disable"))
 
 	err = s.pg.CreateDB(s.ctx, dbName)
 	s.Require().NoError(err)
