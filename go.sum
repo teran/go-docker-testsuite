@@ -213,8 +213,8 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/teran/echo-grpc-server v0.0.0-20240512211903-7c0d3d091c93 h1:kiYDPhhMBqf9JeQ59hGMdCRYkMH0KsZwDePGOZ2tJbI=
-github.com/teran/echo-grpc-server v0.0.0-20240512211903-7c0d3d091c93/go.mod h1:ffluio+EtHNzo+6Pd4d0FnEXHnkMZhOTOiWS0FkpbzA=
+github.com/teran/echo-grpc-server v0.0.2 h1:2+5zgDdRvYY2eXv4Z6o5Ku72NFKRMNAe9W3/i9YKzyo=
+github.com/teran/echo-grpc-server v0.0.2/go.mod h1:chEwqVEY4z4awjWY3+GR4iXOcB0iq0fZk/lkzdzy/nk=
 github.com/teran/go-ptr v1.1.0 h1:c/5SPr+FB4zfmmKVB+KTCNKpgC/zWKBY5JHReL84lKU=
 github.com/teran/go-ptr v1.1.0/go.mod h1:2gyUP12bjbvBfyXm/NflOYJHONy415pNVeSTOZHna+A=
 github.com/teran/go-random v0.0.1 h1:WQ3cF7UUQb/Q0oGAKcYeLeUIcMzD4vSs18oU1pkU/Mo=
