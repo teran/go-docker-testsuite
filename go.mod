@@ -3,7 +3,7 @@ module github.com/teran/go-docker-testsuite
 go 1.22.3
 
 require (
-	github.com/docker/docker v27.0.0+incompatible
+	github.com/docker/docker v27.1.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.8.1
