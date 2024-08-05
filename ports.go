@@ -1,13 +1,10 @@
 package docker
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"strconv"
 
 	dockerContainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/runconfig"
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
 )
@@ -25,18 +22,21 @@ type Binding struct {
 
 // NewHostConfig creates new HostConfig instance
 func NewHostConfig(pb *PortBindings) (*dockerContainer.HostConfig, error) {
-	hc := &HostConfigSpec{
-		PortBindings: pb.portBindings,
+	pm := nat.PortMap{}
+	for k, v := range pb.portBindings {
+		for _, pb := range v {
+			p := nat.Port(k)
+			pm[p] = append(pm[p], nat.PortBinding{
+				HostIP:   pb.HostIP,
+				HostPort: pb.HostPort,
+			})
+		}
 	}
 
-	j, err := json.Marshal(hc)
-	if err != nil {
-		return nil, err
-	}
-
-	rc := runconfig.ContainerDecoder{}
-	_, cc, _, err := rc.DecodeConfig(bytes.NewReader(j))
-	return cc, err
+	return &dockerContainer.HostConfig{
+		NetworkMode:  dockerContainer.NetworkMode("default"),
+		PortBindings: pm,
+	}, nil
 }
 
 // PortBindings is a full mapping of internal & external docker container ports
