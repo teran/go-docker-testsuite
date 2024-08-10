@@ -3,7 +3,9 @@ package memcache
 import (
 	"context"
 	"fmt"
+	"time"
 
+	memcacheCli "github.com/bradfitz/gomemcache/memcache"
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
 )
@@ -36,6 +38,20 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 
 	if err := c.Run(ctx); err != nil {
 		return nil, err
+	}
+
+	hp, err := c.URL(docker.ProtoTCP, 11211)
+	if err != nil {
+		return nil, err
+	}
+	cli := memcacheCli.New(fmt.Sprintf("%s:%d", hp.Host, hp.Port))
+
+	for {
+		if err := cli.Ping(); err != nil {
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
 	}
 
 	return &memcache{
