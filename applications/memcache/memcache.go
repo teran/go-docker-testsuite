@@ -6,6 +6,8 @@ import (
 	"time"
 
 	memcacheCli "github.com/bradfitz/gomemcache/memcache"
+	log "github.com/sirupsen/logrus"
+
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
 )
@@ -48,16 +50,20 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 	defer cli.Close()
 
 	for {
-		if err := cli.Ping(); err != nil {
-			time.Sleep(1 * time.Second)
-		} else {
-			break
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Microsecond):
+			if err := cli.Ping(); err != nil {
+				log.Tracef("memcached is not ready yet, let's wait a bit ...")
+				continue
+			}
+
+			return &memcache{
+				c: c,
+			}, nil
 		}
 	}
-
-	return &memcache{
-		c: c,
-	}, nil
 }
 
 func (m *memcache) Close(ctx context.Context) error {
