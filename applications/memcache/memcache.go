@@ -45,6 +45,7 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 		return nil, err
 	}
 	cli := memcacheCli.New(fmt.Sprintf("%s:%d", hp.Host, hp.Port))
+	defer cli.Close()
 
 	for {
 		if err := cli.Ping(); err != nil {
