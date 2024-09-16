@@ -17,7 +17,7 @@ require (
 	github.com/teran/echo-grpc-server v0.0.2
 	github.com/teran/go-ptr v1.1.0
 	github.com/teran/go-random v0.0.1
-	google.golang.org/grpc v1.66.0
+	google.golang.org/grpc v1.66.2
 )
 
 require (
