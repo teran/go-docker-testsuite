@@ -79,7 +79,7 @@ func (pb *PortBindings) PortDNAT(proto Protocol, port uint16) *PortBindings {
 		"protocol": proto,
 		"source":   port,
 		"exposed":  externalPort,
-	}).Tracef("port mapping establised")
+	}).Tracef("port mapping established")
 
 	k := fmt.Sprintf("%d/%s", port, proto.String())
 	pb.portBindings[k] = append(

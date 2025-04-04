@@ -116,7 +116,7 @@ func (c *container) Name() string {
 	return c.name
 }
 
-// NetworkAttach attachs the container to the specific network
+// NetworkAttach attaches the container to the specific network
 // Usable when it's needed to group amount of containers with IP-level connectivity
 func (c *container) NetworkAttach(networkID string) error {
 	c.networkID = networkID
