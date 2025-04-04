@@ -72,7 +72,7 @@ func (p *postgresql) CreateDB(ctx context.Context, db string) error {
 	if err != nil {
 		return err
 	}
-	defer pgconn.Close(ctx)
+	defer func() { _ = pgconn.Close(ctx) }()
 
 	// Arguments are not supported in CREATE DATABASE statement so using Sprintf() :(
 	_, err = pgconn.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s", db))
@@ -89,7 +89,7 @@ func (p *postgresql) DropDB(ctx context.Context, db string) error {
 	if err != nil {
 		return err
 	}
-	defer pgconn.Close(ctx)
+	defer func() { _ = pgconn.Close(ctx) }()
 
 	// Arguments are not supported in DROP DATABASE statement so using Sprintf() :(
 	_, err = pgconn.Exec(ctx, fmt.Sprintf("DROP DATABASE %s", db))

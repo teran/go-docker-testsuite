@@ -52,5 +52,6 @@ func (s *RedisTestSuite) SetupTest() {
 }
 
 func (s *RedisTestSuite) TearDownTest() {
-	s.app.Close(s.ctx)
+	err := s.app.Close(s.ctx)
+	s.Require().NoError(err)
 }

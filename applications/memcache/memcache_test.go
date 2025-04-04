@@ -23,7 +23,7 @@ func TestMemcache(t *testing.T) {
 	app, err := New(ctx)
 	r.NoError(err)
 
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	e, err := app.GetEndpointAddress()
 	r.NoError(err)

@@ -17,7 +17,8 @@ func init() {
 func TestPortBindings(t *testing.T) {
 	r := require.New(t)
 
-	os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
+	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
+	r.NoError(err)
 
 	var count uint16 = 12000
 	pb := NewPortBindingsWithTCPPortAllocator(func() (uint16, error) {
@@ -45,7 +46,8 @@ func TestPortBindings(t *testing.T) {
 func TestNewHostConfig(t *testing.T) {
 	r := require.New(t)
 
-	os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
+	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
+	r.NoError(err)
 
 	var count uint16 = 12000
 	pb := NewPortBindingsWithTCPPortAllocator(func() (uint16, error) {
