@@ -28,7 +28,7 @@ func (e Environment) LogLevelVar(name string, l log.Level) Environment {
 	return e
 }
 
-// Int64Var sets int64 var to the envorinment
+// Int64Var sets int64 var to the environment
 func (e Environment) Int64Var(name string, value int64) Environment {
 	e[name] = strconv.FormatInt(value, 10)
 	return e
@@ -60,7 +60,7 @@ func (e Environment) Uint64Var(name string, value uint64) Environment {
 	return e
 }
 
-// UintVar sets uint var to the environent
+// UintVar sets uint var to the environment
 func (e Environment) UintVar(name string, value uint) Environment {
 	return e.Uint64Var(name, uint64(value))
 }

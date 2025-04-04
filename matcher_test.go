@@ -17,7 +17,7 @@ func TestSubstringMatcher(t *testing.T) {
 
 	m := NewSubstringMatcher("blah")
 
-	r.False(m("someunexpected"))
+	r.False(m("some_unexpected"))
 	r.True(m("test blah test"))
 	r.True(m("blah"))
 }
@@ -27,7 +27,7 @@ func TestExactMatcher(t *testing.T) {
 
 	m := NewExactMatcher("blah")
 
-	r.False(m("asdasdasda"))
+	r.False(m("test_string"))
 	r.False(m("test blah test"))
 	r.True(m("blah"))
 }
