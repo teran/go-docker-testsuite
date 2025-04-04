@@ -2,7 +2,7 @@ package minio
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +29,7 @@ func TestMinio(t *testing.T) {
 	app, err := New(ctx)
 	r.NoError(err)
 
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	s3Endpoint, err := app.GetEndpointURL()
 	r.NoError(err)
@@ -68,7 +68,7 @@ func TestMinio(t *testing.T) {
 	)
 	r.NoError(err)
 
-	resp, err := ioutil.ReadAll(obj)
+	resp, err := io.ReadAll(obj)
 	r.NoError(err)
 	r.Equal(testPayload, string(resp))
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -74,7 +74,7 @@ func (g *group) Run(ctx context.Context) error {
 		"name": g.name,
 	}).Trace("creating network")
 
-	net, err := g.cli.NetworkCreate(ctx, g.name, types.NetworkCreate{
+	net, err := g.cli.NetworkCreate(ctx, g.name, network.CreateOptions{
 		Attachable: true,
 		Internal:   true,
 	})

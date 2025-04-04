@@ -15,11 +15,15 @@ func init() {
 func TestImageName(t *testing.T) {
 	r := require.New(t)
 
-	os.Unsetenv("IMAGE_PREFIX")
+	err := os.Unsetenv("IMAGE_PREFIX")
+	r.NoError(err)
+
 	v := ImageName("testdata")
 	r.Equal("testdata", v)
 
-	os.Setenv("IMAGE_PREFIX", "some-proxy.example.com")
+	err = os.Setenv("IMAGE_PREFIX", "some-proxy.example.com")
+	r.NoError(err)
+
 	v = ImageName("testdata")
 	r.Equal("some-proxy.example.com/testdata", v)
 }

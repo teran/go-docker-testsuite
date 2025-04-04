@@ -89,7 +89,7 @@ func (c *container) AwaitOutput(ctx context.Context, m Matcher) error {
 	if err != nil {
 		return err
 	}
-	defer rd.Close()
+	defer func() { _ = rd.Close() }()
 
 	s := bufio.NewScanner(rd)
 	for s.Scan() {

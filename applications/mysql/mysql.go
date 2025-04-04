@@ -69,7 +69,7 @@ func New(ctx context.Context, image string) (MySQL, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening database connection")
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	for i := 0; i < 30; i++ {
 		if err := db.Ping(); err == nil {
@@ -94,7 +94,7 @@ func (m *mysql) CreateDB(ctx context.Context, name string) error {
 	if err != nil {
 		return errors.Wrap(err, "error opening database connection")
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.Ping(); err != nil {
 		return errors.Wrap(err, "error pinging database")
@@ -114,7 +114,7 @@ func (m *mysql) DropDB(ctx context.Context, name string) error {
 	if err != nil {
 		return errors.Wrap(err, "error opening database connection")
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	if err := c.Ping(); err != nil {
 		return errors.Wrap(err, "error pinging database")

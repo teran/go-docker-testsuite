@@ -57,7 +57,7 @@ func RandomPortTCP() (uint16, error) {
 		return 0, err
 	}
 
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	_, p, err := net.SplitHostPort(ln.Addr().String())
 	if err != nil {
