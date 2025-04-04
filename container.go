@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	ptr "github.com/teran/go-ptr"
+	ptr "github.com/teran/go-collection/types/ptr"
 )
 
 const (

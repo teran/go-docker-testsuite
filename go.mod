@@ -1,8 +1,8 @@
 module github.com/teran/go-docker-testsuite
 
-go 1.23.0
+go 1.24.1
 
-toolchain go1.24.1
+toolchain go1.24.2
 
 require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
@@ -17,7 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/teran/echo-grpc-server v0.0.2
-	github.com/teran/go-ptr v1.1.0
+	github.com/teran/go-collection v0.0.5
 	github.com/teran/go-random v0.0.1
 	google.golang.org/grpc v1.71.0
 )
@@ -72,7 +72,6 @@ require (
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/protobuf v1.36.4 // indirect
