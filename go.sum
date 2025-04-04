@@ -197,6 +197,8 @@ github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVs
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.2.0/go.mod h1:qt09Ya8vawLte6SNmTgCsAVtYtaKzEcn8ATUoHMkEqE=
+github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
+github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
@@ -208,8 +210,6 @@ github.com/teran/echo-grpc-server v0.0.3 h1:RDhL+nLBBlx7fjf30eUBz3Lzx+4Wx6D60l+3
 github.com/teran/echo-grpc-server v0.0.3/go.mod h1:c8tqpRv12y7QAr3SvQJ2DsGejCXtWob4tc7lIH8ntbU=
 github.com/teran/go-collection v0.0.5 h1:fro6H5gD/vjUkwv6vQlq0lXcSQrlTbwxtHqHj6PF0s0=
 github.com/teran/go-collection v0.0.5/go.mod h1:i7n6izOzpSeGvNO4o53hyQX8me/apt1YdYWxcn5Szz8=
-github.com/teran/go-random v0.0.1 h1:WQ3cF7UUQb/Q0oGAKcYeLeUIcMzD4vSs18oU1pkU/Mo=
-github.com/teran/go-random v0.0.1/go.mod h1:t6Ns4GZsg/L9whg4u4EVXAj9k2lJiRHmJ7p1intLO0g=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zenazn/goji v0.9.0/go.mod h1:7S9M489iMyHBNxwZnk9/EHS098H4/F6TATF2mIxtB1Q=
