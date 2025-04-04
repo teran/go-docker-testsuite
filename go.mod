@@ -2,11 +2,11 @@ module github.com/teran/go-docker-testsuite
 
 go 1.23.0
 
-toolchain go1.24.2
+toolchain go1.24.1
 
 require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
-	github.com/docker/docker v27.5.1+incompatible
+	github.com/docker/docker v28.0.4+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.9.1
