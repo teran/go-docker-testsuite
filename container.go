@@ -216,7 +216,7 @@ func (c *container) pullImage(ctx context.Context) error {
 			return errors.Wrap(err, "error pulling image")
 		}
 
-		_, err = c.cli.ImageLoad(ctx, image, false)
+		_, err = c.cli.ImageLoad(ctx, image, client.ImageLoadWithQuiet(false))
 		if err != nil {
 			return errors.Wrap(err, "error loading image")
 		}
