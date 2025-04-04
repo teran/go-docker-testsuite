@@ -16,7 +16,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
-	github.com/teran/echo-grpc-server v0.0.2
+	github.com/teran/echo-grpc-server v0.0.3
 	github.com/teran/go-collection v0.0.5
 	github.com/teran/go-random v0.0.1
 	google.golang.org/grpc v1.71.0

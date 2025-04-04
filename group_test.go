@@ -1,5 +1,3 @@
-//go:build docker
-
 package docker
 
 import (
@@ -10,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/teran/echo-grpc-server/presenter/proto"
 	"github.com/teran/go-docker-testsuite/images"
@@ -63,7 +62,7 @@ func TestGroup(t *testing.T) {
 	g, err := NewGroup("test-group", apps...)
 	r.NoError(err)
 
-	defer g.Close(ctx)
+	defer func() { _ = g.Close(ctx) }()
 
 	err = g.Run(ctx)
 	r.NoError(err)
@@ -71,7 +70,7 @@ func TestGroup(t *testing.T) {
 	cl, err := c2.URL(ProtoTCP, 5555)
 	r.NoError(err)
 
-	dial, err := grpc.Dial(cl.String(), grpc.WithInsecure())
+	dial, err := grpc.NewClient(cl.String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
 	cli := proto.NewRemoteEchoServiceClient(dial)
