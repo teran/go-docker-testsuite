@@ -1,7 +1,8 @@
 module github.com/teran/go-docker-testsuite
 
-go 1.22.3
-toolchain go1.24.1
+go 1.23.0
+
+toolchain go1.24.2
 
 require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
