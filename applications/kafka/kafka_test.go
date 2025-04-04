@@ -24,7 +24,7 @@ func TestKafka(t *testing.T) {
 
 	app, err := NewWithImage(ctx, "apache/kafka:3.8.0")
 	r.NoError(err)
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	url, err := app.GetBrokerURL(ctx)
 	r.NoError(err)
@@ -36,11 +36,11 @@ func TestKafka(t *testing.T) {
 
 	producer, err := sarama.NewSyncProducer([]string{url}, cfg)
 	r.NoError(err)
-	defer producer.Close()
+	defer func() { _ = producer.Close() }()
 
 	consumer, err := sarama.NewConsumer([]string{url}, cfg)
 	r.NoError(err)
-	defer consumer.Close()
+	defer func() { _ = consumer.Close() }()
 
 	g, ctx := errgroup.WithContext(context.Background())
 
@@ -57,7 +57,7 @@ func TestKafka(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 
 		for {
 			select {
