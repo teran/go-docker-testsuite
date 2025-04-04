@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/teran/go-random"
+	random "github.com/teran/go-collection/random"
 )
 
 type Group interface {
