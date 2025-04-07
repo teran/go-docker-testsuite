@@ -44,6 +44,41 @@ func TestPortBindings(t *testing.T) {
 	}, pb.portBindings)
 }
 
+func TestPortBindingsWithAliases(t *testing.T) {
+	r := require.New(t)
+
+	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
+	r.NoError(err)
+
+	var count uint16 = 12000
+	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
+		count++
+		return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), count, []string{
+			strconv.FormatUint(uint64(count+1000), 10) + "/" + proto.String(),
+		}, nil
+	}).
+		PortDNAT(ProtoTCP, 1234).
+		PortDNAT(ProtoUDP, 4567)
+	r.Equal(map[string][]Binding{
+		"1234/tcp": {
+			{
+				HostIP:   "1.1.1.1",
+				HostPort: "12001",
+			},
+		},
+		"4567/udp": {
+			{
+				HostIP:   "1.1.1.1",
+				HostPort: "12002",
+			},
+		},
+	}, pb.portBindings)
+	r.Equal(map[string]string{
+		"13001/tcp": "1234/tcp",
+		"13002/udp": "4567/udp",
+	}, pb.portAliases)
+}
+
 func TestNewHostConfig(t *testing.T) {
 	r := require.New(t)
 
