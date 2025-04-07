@@ -13,7 +13,7 @@ type HostConfigSpec struct {
 	PortBindings map[string][]Binding
 }
 
-type PortAllocator func(proto Protocol, port uint16) (string, uint16, error)
+type PortAllocator func(proto Protocol, port uint16) (string, uint16, []string, error)
 
 // Binding reflects a mapping part of the internal & external port of the container
 type Binding struct {
@@ -42,6 +42,7 @@ func NewHostConfig(pb *PortBindings) (*dockerContainer.HostConfig, error) {
 
 // PortBindings is a full mapping of internal & external docker container ports
 type PortBindings struct {
+	portAliases      map[string]string
 	portBindings     map[string][]Binding
 	tcpPortAllocator PortAllocator
 }
@@ -59,6 +60,7 @@ func NewDirectPortBinding() *PortBindings {
 // and allows to pass custom port allocation function
 func NewPortBindingsWithTCPPortAllocator(allocator PortAllocator) *PortBindings {
 	return &PortBindings{
+		portAliases:      make(map[string]string),
 		portBindings:     make(map[string][]Binding),
 		tcpPortAllocator: allocator,
 	}
@@ -75,9 +77,13 @@ func (pb *PortBindings) PortDNAT(proto Protocol, port uint16) *PortBindings {
 		panic(err)
 	}
 
-	portName, externalPort, err := pb.tcpPortAllocator(proto, port)
+	portName, externalPort, aliases, err := pb.tcpPortAllocator(proto, port)
 	if err != nil {
 		panic(err)
+	}
+
+	for _, alias := range aliases {
+		pb.portAliases[alias] = portName
 	}
 
 	log.WithFields(log.Fields{

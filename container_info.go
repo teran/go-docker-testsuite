@@ -18,7 +18,7 @@ type ContainerInfo interface {
 }
 
 type containerInfo struct {
-	portMapping  map[string][]Binding
+	ports        *PortBindings
 	dockerHostIP string
 }
 
@@ -30,7 +30,7 @@ func newContainerInfoFromContainer(c *container) ContainerInfo {
 
 	return &containerInfo{
 		dockerHostIP: addr,
-		portMapping:  c.ports.portBindings,
+		ports:        c.ports,
 	}
 }
 
@@ -38,11 +38,16 @@ func (c *containerInfo) GetExternalPortMapping(proto Protocol, port uint16) (uin
 	log.WithFields(log.Fields{
 		"proto":   proto.String(),
 		"port":    port,
-		"mapping": c.portMapping,
+		"mapping": c.ports,
 	}).Trace("looking up for port ...")
 
 	k := strconv.FormatUint(uint64(port), 10) + "/" + proto.String()
-	pbs, ok := c.portMapping[k]
+
+	if v, ok := c.ports.portAliases[k]; ok {
+		k = v
+	}
+
+	pbs, ok := c.ports.portBindings[k]
 	if !ok {
 		return 0, errors.Errorf("port `%s` is not registered", k)
 	}

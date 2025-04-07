@@ -256,6 +256,10 @@ func (c *container) URL(proto Protocol, port uint16) (*HostPort, error) {
 	}).Trace("looking up for port ...")
 
 	k := strconv.FormatUint(uint64(port), 10) + "/" + proto.String()
+	if v, ok := c.ports.portAliases[k]; ok {
+		k = v
+	}
+
 	pbs, ok := c.ports.portBindings[k]
 	if !ok {
 		return nil, errors.Errorf("port `%s` is not registered", k)
