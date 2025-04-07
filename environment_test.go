@@ -28,21 +28,6 @@ func TestEnvironmentBuilder(t *testing.T) {
 		Uint8Var("uint8_var", uint8(255)).
 		BoolVar("bool_var", true)
 
-	r.Equal(Environment{
-		"string_var": "string_value",
-		"int_var":    "1234",
-		"int64_var":  "5678",
-		"int32_var":  "9012",
-		"int16_var":  "3456",
-		"int8_var":   "126",
-		"uint_var":   "987",
-		"uint64_var": "654",
-		"uint32_var": "321",
-		"uint16_var": "9087",
-		"uint8_var":  "255",
-		"bool_var":   "true",
-	}, e)
-
 	r.ElementsMatch([]string{
 		"string_var=string_value",
 		"int_var=1234",
@@ -56,5 +41,5 @@ func TestEnvironmentBuilder(t *testing.T) {
 		"uint16_var=9087",
 		"uint8_var=255",
 		"bool_var=true",
-	}, e.list())
+	}, e.Eval(nil))
 }
