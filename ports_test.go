@@ -22,7 +22,7 @@ func TestPortBindings(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
+	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
 		count++
 		return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), count, []string{}, nil
 	}).
@@ -51,7 +51,7 @@ func TestNewHostConfig(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
+	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
 		count++
 		return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), count, []string{}, nil
 	}).
@@ -77,4 +77,8 @@ func TestNewHostConfig(t *testing.T) {
 			},
 		},
 	}, hc)
+	r.Equal(nat.PortSet{
+		"1234/tcp": struct{}{},
+		"4567/udp": struct{}{},
+	}, pb.portSet())
 }

@@ -49,16 +49,16 @@ type PortBindings struct {
 
 // NewPortBindings creates new PortBindings instance
 func NewPortBindings() *PortBindings {
-	return NewPortBindingsWithTCPPortAllocator(RandomPort)
+	return NewPortBindingsWithPortAllocator(RandomPort)
 }
 
 func NewDirectPortBinding() *PortBindings {
-	return NewPortBindingsWithTCPPortAllocator(OneToOneRandomPort)
+	return NewPortBindingsWithPortAllocator(OneToOneRandomPort)
 }
 
 // NewPortBindingsWithTCPPortAllocator creates new PortBinding instance
 // and allows to pass custom port allocation function
-func NewPortBindingsWithTCPPortAllocator(allocator PortAllocator) *PortBindings {
+func NewPortBindingsWithPortAllocator(allocator PortAllocator) *PortBindings {
 	return &PortBindings{
 		portAliases:      make(map[string]string),
 		portBindings:     make(map[string][]Binding),
