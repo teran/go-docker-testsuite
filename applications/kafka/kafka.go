@@ -68,7 +68,18 @@ func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 			}).
 			StringVar("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER").
 			StringVar("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT").
-			StringVar("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@localhost:9093"),
+			Var("KAFKA_CONTROLLER_QUORUM_VOTERS", func(c docker.ContainerInfo) string {
+				aPort, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ip, err := c.GetDockerHostIP()
+				if err != nil {
+					panic(err)
+				}
+				return fmt.Sprintf("1@%s:%d", ip, aPort)
+			}),
 		docker.NewDirectPortBinding().
 			PortDNAT(docker.ProtoTCP, brokerPort).
 			PortDNAT(docker.ProtoTCP, adminPort),
