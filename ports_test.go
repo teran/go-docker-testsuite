@@ -21,7 +21,7 @@ func TestPortBindings(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func() (uint16, error) {
+	pb := NewPortBindingsWithTCPPortAllocator(func(uint16) (uint16, error) {
 		count++
 		return count, nil
 	}).
@@ -50,7 +50,7 @@ func TestNewHostConfig(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func() (uint16, error) {
+	pb := NewPortBindingsWithTCPPortAllocator(func(uint16) (uint16, error) {
 		count++
 		return count, nil
 	}).

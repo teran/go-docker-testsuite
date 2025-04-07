@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/teran/go-docker-testsuite"
 )
@@ -29,12 +30,46 @@ func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 		docker.NewEnvironment().
 			IntVar("KAFKA_NODE_ID", 1).
 			StringVar("KAFKA_PROCESS_ROLES", "broker,controller").
-			StringVar("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093").
-			StringVar("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://localhost:9092").
+			Var("KAFKA_LISTENERS", func(c docker.ContainerInfo) string {
+				bp, err := c.GetExternalPortMapping(docker.ProtoTCP, brokerPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ap, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				return fmt.Sprintf(
+					"PLAINTEXT://0.0.0.0:%d,CONTROLLER://0.0.0.0:%d", bp, ap,
+				)
+			}).
+			Var("KAFKA_ADVERTISED_LISTENERS", func(c docker.ContainerInfo) string {
+				bPort, err := c.GetExternalPortMapping(docker.ProtoTCP, brokerPort)
+				if err != nil {
+					panic(err)
+				}
+
+				aPort, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ip, err := c.GetDockerHostIP()
+				if err != nil {
+					panic(err)
+				}
+
+				return fmt.Sprintf(
+					"PLAINTEXT://%s:%d,CONTROLLER://%s:%d",
+					ip, bPort, ip, aPort,
+				)
+			}).
 			StringVar("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER").
 			StringVar("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT").
 			StringVar("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@localhost:9093"),
-		docker.NewPortBindings().
+		docker.NewDirectPortBinding().
 			PortDNAT(docker.ProtoTCP, brokerPort).
 			PortDNAT(docker.ProtoTCP, adminPort),
 	)

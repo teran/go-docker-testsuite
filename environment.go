@@ -9,29 +9,32 @@ import (
 
 // Environment represents the container environment passed
 // into runtime
-type Environment map[string]string
+type Environment map[string]func(c ContainerInfo) string
 
 // NewEnvironment creates new Environment instance
 func NewEnvironment() Environment {
 	return Environment{}
 }
 
+// Var allows to set custom function to generate environment variable
+func (e Environment) Var(name string, vfn func(c ContainerInfo) string) Environment {
+	e[name] = vfn
+	return e
+}
+
 // StringVar sets string var to the environment
 func (e Environment) StringVar(name, value string) Environment {
-	e[name] = value
-	return e
+	return e.Var(name, func(c ContainerInfo) string { return value })
 }
 
 // LogLevelVar sets logrus.Level var to the environment
 func (e Environment) LogLevelVar(name string, l log.Level) Environment {
-	e[name] = l.String()
-	return e
+	return e.Var(name, func(c ContainerInfo) string { return l.String() })
 }
 
 // Int64Var sets int64 var to the environment
 func (e Environment) Int64Var(name string, value int64) Environment {
-	e[name] = strconv.FormatInt(value, 10)
-	return e
+	return e.Var(name, func(c ContainerInfo) string { return strconv.FormatInt(value, 10) })
 }
 
 // IntVar sets int var to the environment
@@ -56,8 +59,7 @@ func (e Environment) Int8Var(name string, value int8) Environment {
 
 // Uint64Var sets uint64 var to the environment
 func (e Environment) Uint64Var(name string, value uint64) Environment {
-	e[name] = strconv.FormatUint(value, 10)
-	return e
+	return e.Var(name, func(c ContainerInfo) string { return strconv.FormatUint(value, 10) })
 }
 
 // UintVar sets uint var to the environment
@@ -82,13 +84,12 @@ func (e Environment) Uint8Var(name string, value uint8) Environment {
 
 // BoolVar sets bool var to the environment
 func (e Environment) BoolVar(name string, value bool) Environment {
-	e[name] = strconv.FormatBool(value)
-	return e
+	return e.Var(name, func(c ContainerInfo) string { return strconv.FormatBool(value) })
 }
 
-func (e Environment) list() (es []string) {
+func (e Environment) Eval(c ContainerInfo) (es []string) {
 	for k, v := range e {
-		es = append(es, fmt.Sprintf("%s=%s", k, v))
+		es = append(es, fmt.Sprintf("%s=%s", k, v(c)))
 	}
 	return es
 }

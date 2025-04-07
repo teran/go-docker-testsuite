@@ -138,7 +138,7 @@ func (c *container) Run(ctx context.Context) error {
 
 	containerConfig := &dockerContainer.Config{
 		Image:        c.image,
-		Env:          c.env.list(),
+		Env:          c.env.Eval(newContainerInfoFromContainer(c)),
 		Cmd:          c.cmd,
 		ExposedPorts: c.ports.portSet(),
 	}

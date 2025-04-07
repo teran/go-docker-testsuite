@@ -41,7 +41,7 @@ func DockerIP() (string, error) {
 // RandomPortTCP makes a query to the kernel about free high range IP address
 // NOTE: it have some probability impact so could fail in the really small amount
 // of cases
-func RandomPortTCP() (uint16, error) {
+func RandomPortTCP(_ uint16) (uint16, error) {
 	dockerIP, err := DockerIP()
 	if err != nil {
 		return 0, err
@@ -74,4 +74,8 @@ func RandomPortTCP() (uint16, error) {
 	}).Tracef("random TCP port allocated")
 
 	return uint16(port), nil
+}
+
+func OneToOnePortTCP(srcPort uint16) (uint16, error) {
+	return srcPort, nil
 }

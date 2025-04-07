@@ -20,11 +20,10 @@ func TestKafka(t *testing.T) {
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
 
-	app, err := NewWithImage(ctx, "apache/kafka:3.8.0")
+	app, err := NewWithImage(ctx, "harbor.homelab.teran.dev/index.docker.io/apache/kafka:3.8.0")
 	r.NoError(err)
-	defer func() { _ = app.Close(ctx) }()
+	defer func() { r.NoError(app.Close(context.Background())) }()
 
 	url, err := app.GetBrokerURL(ctx)
 	r.NoError(err)
@@ -42,7 +41,7 @@ func TestKafka(t *testing.T) {
 	r.NoError(err)
 	defer func() { _ = consumer.Close() }()
 
-	g, ctx := errgroup.WithContext(context.Background())
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		_, _, err := producer.SendMessage(&sarama.ProducerMessage{
@@ -61,10 +60,17 @@ func TestKafka(t *testing.T) {
 
 		for {
 			select {
+			case <-ctx.Done():
+				err := ctx.Err()
+				if err == context.Canceled {
+					return nil
+				}
+				return err
 			case err := <-c.Errors():
 				return err
 			case msg := <-c.Messages():
 				log.Infof("Received messages: key=%s; value=%s", string(msg.Key), string(msg.Value))
+				cancel()
 			}
 		}
 	})
