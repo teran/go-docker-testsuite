@@ -2,6 +2,7 @@ package docker
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
 	dockerContainer "github.com/docker/docker/api/types/container"
@@ -21,9 +22,9 @@ func TestPortBindings(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func(uint16) (uint16, error) {
+	pb := NewPortBindingsWithTCPPortAllocator(func(proto Protocol, port uint16) (string, uint16, error) {
 		count++
-		return count, nil
+		return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), count, nil
 	}).
 		PortDNAT(ProtoTCP, 1234).
 		PortDNAT(ProtoUDP, 4567)
@@ -50,9 +51,9 @@ func TestNewHostConfig(t *testing.T) {
 	r.NoError(err)
 
 	var count uint16 = 12000
-	pb := NewPortBindingsWithTCPPortAllocator(func(uint16) (uint16, error) {
+	pb := NewPortBindingsWithTCPPortAllocator(func(proto Protocol, port uint16) (string, uint16, error) {
 		count++
-		return count, nil
+		return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), count, nil
 	}).
 		PortDNAT(ProtoTCP, 1234).
 		PortDNAT(ProtoUDP, 4567)

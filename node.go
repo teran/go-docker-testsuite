@@ -41,10 +41,10 @@ func DockerIP() (string, error) {
 // RandomPortTCP makes a query to the kernel about free high range IP address
 // NOTE: it have some probability impact so could fail in the really small amount
 // of cases
-func RandomPortTCP(_ uint16) (uint16, error) {
+func RandomPort(proto Protocol, dstPort uint16) (string, uint16, error) {
 	dockerIP, err := DockerIP()
 	if err != nil {
-		return 0, err
+		return "", 0, err
 	}
 
 	bindIP := "127.0.0.1"
@@ -52,30 +52,35 @@ func RandomPortTCP(_ uint16) (uint16, error) {
 		bindIP = "0.0.0.0"
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:0", bindIP))
+	ln, err := net.Listen(proto.String(), fmt.Sprintf("%s:0", bindIP))
 	if err != nil {
-		return 0, err
+		return "", 0, errors.Wrap(err, "error allocation free TCP port")
 	}
-
 	defer func() { _ = ln.Close() }()
 
 	_, p, err := net.SplitHostPort(ln.Addr().String())
 	if err != nil {
-		return 0, err
+		return "", 0, errors.Wrap(err, "error splitting host and port in the allocated result")
 	}
 
 	port, err := strconv.ParseUint(p, 10, 16)
 	if err != nil {
-		return 0, err
+		return "", 0, errors.Wrap(err, "error parsing uint16 value in allocated port number")
 	}
 
 	log.WithFields(log.Fields{
-		"port": port,
+		"port":  port,
+		"proto": "tcp",
 	}).Tracef("random TCP port allocated")
 
-	return uint16(port), nil
+	return strconv.FormatUint(uint64(dstPort), 10) + "/" + proto.String(), uint16(port), nil
 }
 
-func OneToOnePortTCP(srcPort uint16) (uint16, error) {
-	return srcPort, nil
+func OneToOneRandomPort(proto Protocol, srcPort uint16) (string, uint16, error) {
+	_, port, err := RandomPort(proto, 0)
+	if err != nil {
+		return "", 0, errors.Wrap(err, "error getting random TCP port")
+	}
+
+	return strconv.FormatUint(uint64(port), 10) + "/" + proto.String(), port, nil
 }

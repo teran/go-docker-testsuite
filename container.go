@@ -3,7 +3,6 @@ package docker
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -42,13 +41,14 @@ type Container interface {
 type container struct {
 	cli *client.Client
 
-	name        string
-	image       string
-	env         Environment
-	cmd         []string
-	containerID ContainerID
-	networkID   NetworkID
-	ports       *PortBindings
+	name          string
+	image         string
+	env           Environment
+	cmd           []string
+	containerID   ContainerID
+	networkID     NetworkID
+	ports         *PortBindings
+	indirectPorts map[string]string
 }
 
 // New creates new container instance from remote docker image
@@ -70,12 +70,13 @@ func NewContainerWithClient(cli *client.Client, name, image string, cmd []string
 	}).Debugf("initializing container")
 
 	return &container{
-		cli:   cli,
-		name:  name,
-		image: image,
-		cmd:   cmd,
-		env:   env,
-		ports: ports,
+		cli:           cli,
+		name:          name,
+		image:         image,
+		cmd:           cmd,
+		env:           env,
+		ports:         ports,
+		indirectPorts: make(map[string]string),
 	}, nil
 }
 
@@ -144,6 +145,10 @@ func (c *container) Run(ctx context.Context) error {
 	}
 
 	networkConfig := &network.NetworkingConfig{}
+
+	log.WithFields(log.Fields{
+		"ports": c.ports,
+	}).Trace("creating new host config ...")
 
 	hostConfig, err := NewHostConfig(c.ports)
 	if err != nil {
@@ -244,7 +249,13 @@ func (c *container) isImagePulled(ctx context.Context) error {
 
 // URL returns host & port pair to allow external connections
 func (c *container) URL(proto Protocol, port uint16) (*HostPort, error) {
-	k := fmt.Sprintf("%d/%s", port, proto.String())
+	log.WithFields(log.Fields{
+		"proto":   proto.String(),
+		"port":    port,
+		"mapping": c.ports.portBindings,
+	}).Trace("looking up for port ...")
+
+	k := strconv.FormatUint(uint64(port), 10) + "/" + proto.String()
 	pbs, ok := c.ports.portBindings[k]
 	if !ok {
 		return nil, errors.Errorf("port `%s` is not registered", k)

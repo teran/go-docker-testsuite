@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"fmt"
 	"strconv"
 
 	dockerContainer "github.com/docker/docker/api/types/container"
@@ -13,6 +12,8 @@ import (
 type HostConfigSpec struct {
 	PortBindings map[string][]Binding
 }
+
+type PortAllocator func(proto Protocol, port uint16) (string, uint16, error)
 
 // Binding reflects a mapping part of the internal & external port of the container
 type Binding struct {
@@ -42,21 +43,21 @@ func NewHostConfig(pb *PortBindings) (*dockerContainer.HostConfig, error) {
 // PortBindings is a full mapping of internal & external docker container ports
 type PortBindings struct {
 	portBindings     map[string][]Binding
-	tcpPortAllocator func(srcPort uint16) (uint16, error)
+	tcpPortAllocator PortAllocator
 }
 
 // NewPortBindings creates new PortBindings instance
 func NewPortBindings() *PortBindings {
-	return NewPortBindingsWithTCPPortAllocator(RandomPortTCP)
+	return NewPortBindingsWithTCPPortAllocator(RandomPort)
 }
 
 func NewDirectPortBinding() *PortBindings {
-	return NewPortBindingsWithTCPPortAllocator(OneToOnePortTCP)
+	return NewPortBindingsWithTCPPortAllocator(OneToOneRandomPort)
 }
 
 // NewPortBindingsWithTCPPortAllocator creates new PortBinding instance
 // and allows to pass custom port allocation function
-func NewPortBindingsWithTCPPortAllocator(allocator func(uint16) (uint16, error)) *PortBindings {
+func NewPortBindingsWithTCPPortAllocator(allocator PortAllocator) *PortBindings {
 	return &PortBindings{
 		portBindings:     make(map[string][]Binding),
 		tcpPortAllocator: allocator,
@@ -74,20 +75,20 @@ func (pb *PortBindings) PortDNAT(proto Protocol, port uint16) *PortBindings {
 		panic(err)
 	}
 
-	externalPort, err := pb.tcpPortAllocator(port)
+	portName, externalPort, err := pb.tcpPortAllocator(proto, port)
 	if err != nil {
 		panic(err)
 	}
 
 	log.WithFields(log.Fields{
 		"protocol": proto,
+		"name":     portName,
 		"source":   port,
 		"exposed":  externalPort,
 	}).Tracef("port mapping established")
 
-	k := fmt.Sprintf("%d/%s", port, proto.String())
-	pb.portBindings[k] = append(
-		pb.portBindings[k],
+	pb.portBindings[portName] = append(
+		pb.portBindings[portName],
 		Binding{
 			HostIP:   dockerIP,
 			HostPort: strconv.FormatUint(uint64(externalPort), 10),
@@ -103,7 +104,9 @@ func (pb *PortBindings) portSet() nat.PortSet {
 		ps[nat.Port(b)] = struct{}{}
 	}
 
-	log.Debugf("portSet: %#v", ps)
+	log.WithFields(log.Fields{
+		"ports": ps,
+	}).Trace("port set retrieved")
 
 	return ps
 }

@@ -1,10 +1,10 @@
 package docker
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -35,7 +35,13 @@ func newContainerInfoFromContainer(c *container) ContainerInfo {
 }
 
 func (c *containerInfo) GetExternalPortMapping(proto Protocol, port uint16) (uint16, error) {
-	k := fmt.Sprintf("%d/%s", port, proto.String())
+	log.WithFields(log.Fields{
+		"proto":   proto.String(),
+		"port":    port,
+		"mapping": c.portMapping,
+	}).Trace("looking up for port ...")
+
+	k := strconv.FormatUint(uint64(port), 10) + "/" + proto.String()
 	pbs, ok := c.portMapping[k]
 	if !ok {
 		return 0, errors.Errorf("port `%s` is not registered", k)
