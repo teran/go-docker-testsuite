@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"os"
 	"strconv"
 	"testing"
 
@@ -18,8 +17,7 @@ func init() {
 func TestPortBindings(t *testing.T) {
 	r := require.New(t)
 
-	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
-	r.NoError(err)
+	t.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
 
 	var count uint16 = 12000
 	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
@@ -47,8 +45,7 @@ func TestPortBindings(t *testing.T) {
 func TestPortBindingsWithAliases(t *testing.T) {
 	r := require.New(t)
 
-	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
-	r.NoError(err)
+	t.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
 
 	var count uint16 = 12000
 	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
@@ -82,8 +79,7 @@ func TestPortBindingsWithAliases(t *testing.T) {
 func TestNewHostConfig(t *testing.T) {
 	r := require.New(t)
 
-	err := os.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
-	r.NoError(err)
+	t.Setenv("DOCKER_HOST", "tcp://1.1.1.1:9874")
 
 	var count uint16 = 12000
 	pb := NewPortBindingsWithPortAllocator(func(proto Protocol, port uint16) (string, uint16, []string, error) {
