@@ -21,7 +21,7 @@ func TestKafka(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
-	app, err := NewWithImage(ctx, "harbor.homelab.teran.dev/index.docker.io/apache/kafka:3.8.0")
+	app, err := NewWithImage(ctx, "index.docker.io/apache/kafka:4.0.0")
 	r.NoError(err)
 	defer func() { r.NoError(app.Close(context.Background())) }()
 

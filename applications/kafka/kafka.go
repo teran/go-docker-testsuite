@@ -25,7 +25,7 @@ type kafka struct {
 func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 	c, err := docker.NewContainer(
 		"kafka",
-		"apache/kafka:3.9.0",
+		"index.docker.io/apache/kafka:4.0.0",
 		nil,
 		docker.NewEnvironment().
 			IntVar("KAFKA_NODE_ID", 1).
