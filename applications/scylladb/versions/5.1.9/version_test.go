@@ -18,5 +18,5 @@ func TestScyllaDBVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), versions.ScyllaDBTestDefaultTimeout)
 	defer cancel()
 
-	suite.Run(t, versions.New(ctx, images.ImageName(image)))
+	suite.Run(t, versions.New(ctx, image
 }

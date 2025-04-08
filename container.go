@@ -3,6 +3,7 @@ package docker
 import (
 	"bufio"
 	"context"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -69,10 +70,20 @@ func NewContainerWithClient(cli *client.Client, name, image string, cmd []string
 		"image": image,
 	}).Debugf("initializing container")
 
+	imageRef := image
+	prefix := os.Getenv("IMAGE_PREFIX")
+	if prefix != "" {
+		imageRef = strings.TrimRight(prefix, "/") + "/" + strings.TrimLeft(imageRef, "/")
+		log.WithFields(log.Fields{
+			"original": image,
+			"prefixed": imageRef,
+		}).Trace("Setting prefix for image (for proxy purposes since IMAGE_PREFIX is present)")
+	}
+
 	return &container{
 		cli:           cli,
 		name:          name,
-		image:         image,
+		image:         imageRef,
 		cmd:           cmd,
 		env:           env,
 		ports:         ports,
@@ -220,6 +231,7 @@ func (c *container) pullImage(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error pulling image")
 		}
+		defer func() { _ = image.Close() }()
 
 		_, err = c.cli.ImageLoad(ctx, image, client.ImageLoadWithQuiet(false))
 		if err != nil {
