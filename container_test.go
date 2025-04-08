@@ -18,6 +18,15 @@ func init() {
 	log.SetLevel(log.TraceLevel)
 }
 
+func TestImagePrefix(t *testing.T) {
+	r := require.New(t)
+
+	t.Setenv("IMAGE_PREFIX", "test-prefix")
+	c, err := NewContainer("test", "image:test", []string{}, NewEnvironment(), NewPortBindings())
+	r.NoError(err)
+	r.Equal("test-prefix/image:test", c.(*container).image)
+}
+
 func TestContainerRun(t *testing.T) {
 	r := require.New(t)
 
