@@ -1,5 +1,3 @@
-//go:build docker
-
 package docker
 
 import (
@@ -10,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/teran/echo-grpc-server/presenter/proto"
 	"github.com/teran/go-docker-testsuite/images"
@@ -37,7 +36,7 @@ func TestContainerRun(t *testing.T) {
 	)
 	r.NoError(err)
 
-	defer c.Close(ctx)
+	defer func() { _ = c.Close(ctx) }()
 
 	err = c.Ping(ctx)
 	r.NoError(err)
@@ -48,12 +47,12 @@ func TestContainerRun(t *testing.T) {
 	err = c.AwaitOutput(ctx, NewSubstringMatcher("running GRPC echo server"))
 	r.NoError(err)
 
-	defer c.Close(ctx)
+	defer func() { _ = c.Close(ctx) }()
 
 	hp, err := c.URL(ProtoTCP, 5555)
 	r.NoError(err)
 
-	dial, err := grpc.Dial(hp.String(), grpc.WithInsecure())
+	dial, err := grpc.NewClient(hp.String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	r.NoError(err)
 
 	cli := proto.NewEchoServiceClient(dial)
