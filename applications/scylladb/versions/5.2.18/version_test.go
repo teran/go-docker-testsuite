@@ -1,5 +1,3 @@
-//go:build scylla
-
 package scylladb
 
 import (
