@@ -38,6 +38,8 @@ func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 				"--memory=1G",
 				"--smp=1",
 				"--developer-mode=1",
+				"--idle-poll-time-us=0",
+				"--poll-aio 0",
 			},
 			docker.NewEnvironment(),
 			docker.NewPortBindings().
