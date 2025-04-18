@@ -54,7 +54,7 @@ func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 
 	ipRe := `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\`
 	l := fmt.Sprintf(
-		`\[shard\s+\d{1}(:(stat|stmt))?\] cql_server_controller - Starting listening for CQL clients on %s:9042 \(unencrypted, non-shard-aware\)$`,
+		`\] cql_server_controller - Starting listening for CQL clients on %s:9042 \(unencrypted, non-shard-aware\)$`,
 		ipRe,
 	)
 	re, err := regexp.Compile(l)
