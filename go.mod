@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/IBM/sarama v1.45.1
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
-	github.com/docker/docker v28.0.4+incompatible
+	github.com/docker/docker v28.1.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.9.2
@@ -66,6 +66,7 @@ require (
 	github.com/minio/crc64nvme v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
+	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
