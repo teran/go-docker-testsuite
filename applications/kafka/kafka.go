@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/teran/go-docker-testsuite"
+	"github.com/teran/go-docker-testsuite/images"
 )
 
 const (
@@ -22,10 +23,14 @@ type kafka struct {
 	c docker.Container
 }
 
+func New(ctx context.Context) (Kafka, error) {
+	return NewWithImage(ctx, images.Kafka)
+}
+
 func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 	c, err := docker.NewContainer(
 		"kafka",
-		"index.docker.io/apache/kafka:4.0.0",
+		image,
 		nil,
 		docker.NewEnvironment().
 			IntVar("KAFKA_NODE_ID", 1).

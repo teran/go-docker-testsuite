@@ -7,6 +7,9 @@ const (
 	// Memcache image tag
 	Memcache = "index.docker.io/memcached:1.6.29-alpine3.20"
 
+	// Kafka image
+	Kafka = "index.docker.io/apache/kafka:4.0.0"
+
 	// Minio image tag
 	Minio = "index.docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z"
 
