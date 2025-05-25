@@ -33,7 +33,8 @@ func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 		image,
 		nil,
 		docker.NewEnvironment().
-			IntVar("KAFKA_NODE_ID", 1).
+			UintVar("KAFKA_NODE_ID", 1).
+			UintVar("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", 1).
 			StringVar("KAFKA_PROCESS_ROLES", "broker,controller").
 			Var("KAFKA_LISTENERS", func(c docker.ContainerInfo) string {
 				bp, err := c.GetExternalPortMapping(docker.ProtoTCP, brokerPort)
