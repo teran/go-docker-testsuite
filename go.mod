@@ -5,7 +5,7 @@ go 1.24.1
 toolchain go1.24.2
 
 require (
-	github.com/IBM/sarama v1.45.1
+	github.com/IBM/sarama v1.45.2
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/docker/docker v28.1.1+incompatible
 	github.com/docker/go-connections v0.5.0
