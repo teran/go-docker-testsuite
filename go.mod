@@ -20,7 +20,7 @@ require (
 	github.com/teran/echo-grpc-server v0.0.3
 	github.com/teran/go-collection v0.2.1
 	golang.org/x/sync v0.14.0
-	google.golang.org/grpc v1.72.2
+	google.golang.org/grpc v1.73.0
 )
 
 require (
