@@ -10,7 +10,7 @@ require (
 	github.com/docker/docker v28.2.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/go-sql-driver/mysql v1.9.2
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gocql/gocql v1.7.0
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/minio/minio-go/v7 v7.0.93
