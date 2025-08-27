@@ -5,7 +5,7 @@ go 1.24.1
 toolchain go1.24.2
 
 require (
-	github.com/IBM/sarama v1.45.2
+	github.com/IBM/sarama v1.46.0
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/teran/echo-grpc-server v0.0.3
 	github.com/teran/go-collection v0.4.0
 	golang.org/x/sync v0.16.0
@@ -47,8 +47,6 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.14.3 // indirect
@@ -84,10 +82,10 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.26.0 // indirect
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
