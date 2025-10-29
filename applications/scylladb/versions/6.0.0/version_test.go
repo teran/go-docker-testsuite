@@ -12,7 +12,7 @@ import (
 const image = "index.docker.io/scylladb/scylla:6.0.0"
 
 func TestScyllaDBVersion(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), versions.ScyllaDBTestDefaultTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), versions.ScyllaDBTestDefaultTimeout)
 	defer cancel()
 
 	suite.Run(t, versions.New(ctx, image))
