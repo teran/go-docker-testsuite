@@ -4,9 +4,9 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/teran/go-docker-testsuite)](https://goreportcard.com/report/github.com/teran/go-docker-testsuite)
 [![Go Reference](https://pkg.go.dev/badge/github.com/teran/go-docker-testsuite.svg)](https://pkg.go.dev/github.com/teran/go-docker-testsuite)
 
-Library to run any third-party dependency in Docker on any platform Docker supports
-The main purpose is to allow runnings integration tests against almost any
-database or other dependency running right within docker and available via
+Library to run any third-party dependency in Docker on any platform Docker supports.
+The main purpose is to allow running integration tests against almost any
+database or other dependencies running right within docker and accessible via
 network.
 
 ## Applications
@@ -25,8 +25,8 @@ to applications package for some examples.
 
 ## Example usage
 
-Go Docker Testsuite provides its own interface for each application aiming to
-make it clean and easy to use each particular application.
+go-docker-testsuite provides its own interface for each application aiming to
+make it clean and easy to use them.
 
 Here's an example for MySQL database:
 
