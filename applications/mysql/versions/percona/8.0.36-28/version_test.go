@@ -12,7 +12,7 @@ import (
 const image = "index.docker.io/library/percona:8.0.36-28"
 
 func TestMySQL(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	suite.Run(t, versions.New(ctx, image))

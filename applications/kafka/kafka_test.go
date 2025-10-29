@@ -123,7 +123,7 @@ type kafkaAppTestSuite struct {
 }
 
 func (s *kafkaAppTestSuite) SetupTest() {
-	s.ctx, s.cancel = context.WithTimeout(context.Background(), time.Minute)
+	s.ctx, s.cancel = context.WithTimeout(s.T().Context(), time.Minute)
 
 	var err error
 	s.app, err = New(s.ctx)
@@ -131,7 +131,7 @@ func (s *kafkaAppTestSuite) SetupTest() {
 }
 
 func (s *kafkaAppTestSuite) TearDownTest() {
-	s.Require().NoError(s.app.Close(context.TODO()))
+	s.Require().NoError(s.app.Close(s.T().Context()))
 }
 
 func TestKafkaAppTestSuite(t *testing.T) {

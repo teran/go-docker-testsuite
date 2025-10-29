@@ -18,7 +18,6 @@ const (
 type testSuite struct {
 	suite.Suite
 
-	ctx   context.Context
 	sdb   scylladb.ScyllaDB
 	image string
 }
@@ -55,19 +54,18 @@ func (s *testSuite) TestAll() {
 // ========================================================================
 func New(ctx context.Context, image string) *testSuite {
 	return &testSuite{
-		ctx:   ctx,
 		image: image,
 	}
 }
 
 func (s *testSuite) SetupSuite() {
 	var err error
-	s.sdb, err = scylladb.NewWithImage(s.ctx, s.image)
+	s.sdb, err = scylladb.NewWithImage(s.T().Context(), s.image)
 	s.Require().NoError(err)
 }
 
 func (s *testSuite) TearDownSuite() {
-	ctx, cancel := context.WithTimeout(context.TODO(), CleanupDefaultTimeout)
+	ctx, cancel := context.WithTimeout(s.T().Context(), CleanupDefaultTimeout)
 	defer cancel()
 
 	err := s.sdb.Close(ctx)

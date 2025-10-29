@@ -21,7 +21,7 @@ func init() {
 func TestGroup(t *testing.T) {
 	r := require.New(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
 	defer cancel()
 
 	awaitRunFn := func(ctx context.Context, ht HookType, c Container) error {
