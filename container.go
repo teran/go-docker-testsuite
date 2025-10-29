@@ -31,6 +31,7 @@ type (
 // Container exposes interface to control the container runtime
 type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error
+	GetOutput(ctx context.Context, m ...Matcher) ([]string, error)
 	Close(ctx context.Context) error
 	Name() string
 	NetworkAttach(networkID string) error
@@ -122,6 +123,36 @@ func (c *container) AwaitOutput(ctx context.Context, m Matcher) error {
 	}
 
 	return s.Err()
+}
+
+func (c *container) GetOutput(ctx context.Context, ms ...Matcher) ([]string, error) {
+	rd, err := c.cli.ContainerLogs(ctx, c.containerID, dockerContainer.LogsOptions{
+		ShowStderr: true,
+		ShowStdout: true,
+		Follow:     false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rd.Close() }()
+
+	out := []string{}
+	s := bufio.NewScanner(rd)
+	for s.Scan() {
+		l := s.Text()
+
+		log.WithFields(log.Fields{
+			"line": l,
+		}).Tracef("processing log line")
+
+		for _, m := range ms {
+			if m(l) {
+				out = append(out, l)
+			}
+		}
+	}
+
+	return out, s.Err()
 }
 
 func (c *container) Name() string {

@@ -56,6 +56,11 @@ func TestContainerRun(t *testing.T) {
 	err = c.AwaitOutput(ctx, NewSubstringMatcher("running GRPC echo server"))
 	r.NoError(err)
 
+	lines, err := c.GetOutput(ctx, NewSubstringMatcher(""))
+	r.NoError(err)
+	r.NotEmpty(lines)
+	r.Contains(lines[0], "running GRPC echo server")
+
 	defer func() { _ = c.Close(ctx) }()
 
 	hp, err := c.URL(ProtoTCP, 5555)
