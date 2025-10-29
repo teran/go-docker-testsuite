@@ -81,7 +81,7 @@ func (s *postgresTestSuite) TearDownSuite() {
 }
 
 func TestPostgresTestSuite(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	ctx, cancel := context.WithTimeout(t.Context(), testTimeout)
 	defer cancel()
 
 	suite.Run(t, &postgresTestSuite{
