@@ -39,7 +39,7 @@ import (
 
     _ "github.com/go-sql-driver/mysql"
 
-    "github.com/teran/go-docker-testsuite/applications/mysql"
+    "github.com/teran/go-docker-testsuite/v2/applications/mysql"
 )
 
 func main() {

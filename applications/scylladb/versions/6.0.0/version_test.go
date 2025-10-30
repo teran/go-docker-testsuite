@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/teran/go-docker-testsuite/applications/scylladb/versions"
+	"github.com/teran/go-docker-testsuite/v2/applications/scylladb/versions"
 )
 
 const image = "index.docker.io/scylladb/scylla:6.0.0"

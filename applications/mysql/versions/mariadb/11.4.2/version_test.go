@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-	"github.com/teran/go-docker-testsuite/applications/mysql/versions"
+	"github.com/teran/go-docker-testsuite/v2/applications/mysql/versions"
 )
 
 const image = "index.docker.io/library/mariadb:11.4.2"

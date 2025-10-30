@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/teran/go-docker-testsuite/applications/postgres/versions"
+	"github.com/teran/go-docker-testsuite/v2/applications/postgres/versions"
 )
 
 const image = "index.docker.io/library/postgres:15.7"

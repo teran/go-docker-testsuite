@@ -4,7 +4,7 @@ import (
 	"context"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/teran/go-docker-testsuite/applications/redis"
+	"github.com/teran/go-docker-testsuite/v2/applications/redis"
 
 	redisClient "github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/suite"
