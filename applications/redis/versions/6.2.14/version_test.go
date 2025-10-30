@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-	"github.com/teran/go-docker-testsuite/applications/redis/versions"
+	"github.com/teran/go-docker-testsuite/v2/applications/redis/versions"
 )
 
 const image = "index.docker.io/library/redis:6.2.14"

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/teran/go-docker-testsuite/applications/postgres"
+	"github.com/teran/go-docker-testsuite/v2/applications/postgres"
 )
 
 type testSuite struct {

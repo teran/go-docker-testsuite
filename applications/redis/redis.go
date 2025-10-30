@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 
-	"github.com/teran/go-docker-testsuite"
+	"github.com/teran/go-docker-testsuite/v2"
 )
 
 type Redis interface {

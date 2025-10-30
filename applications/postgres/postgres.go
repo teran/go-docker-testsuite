@@ -7,8 +7,8 @@ import (
 
 	pgx "github.com/jackc/pgx/v4"
 
-	"github.com/teran/go-docker-testsuite"
-	"github.com/teran/go-docker-testsuite/images"
+	"github.com/teran/go-docker-testsuite/v2"
+	"github.com/teran/go-docker-testsuite/v2/images"
 )
 
 type PostgreSQL interface {

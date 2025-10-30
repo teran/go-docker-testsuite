@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/teran/echo-grpc-server/presenter/proto"
-	"github.com/teran/go-docker-testsuite/images"
+	"github.com/teran/go-docker-testsuite/v2/images"
 )
 
 func init() {

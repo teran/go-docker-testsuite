@@ -8,8 +8,8 @@ import (
 	memcacheCli "github.com/bradfitz/gomemcache/memcache"
 	log "github.com/sirupsen/logrus"
 
-	docker "github.com/teran/go-docker-testsuite"
-	"github.com/teran/go-docker-testsuite/images"
+	docker "github.com/teran/go-docker-testsuite/v2"
+	"github.com/teran/go-docker-testsuite/v2/images"
 )
 
 type Memcache interface {

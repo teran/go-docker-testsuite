@@ -1,4 +1,4 @@
-module github.com/teran/go-docker-testsuite
+module github.com/teran/go-docker-testsuite/v2
 
 go 1.24.1
 

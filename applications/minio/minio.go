@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/teran/go-docker-testsuite"
-	"github.com/teran/go-docker-testsuite/images"
+	"github.com/teran/go-docker-testsuite/v2"
+	"github.com/teran/go-docker-testsuite/v2/images"
 )
 
 const (
