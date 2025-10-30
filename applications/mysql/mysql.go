@@ -10,7 +10,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	docker "github.com/teran/go-docker-testsuite"
+	docker "github.com/teran/go-docker-testsuite/v2"
 )
 
 type MySQL interface {

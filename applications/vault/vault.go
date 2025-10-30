@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
 	log "github.com/sirupsen/logrus"
-	docker "github.com/teran/go-docker-testsuite"
+	docker "github.com/teran/go-docker-testsuite/v2"
 )
 
 var reTokenMatch = regexp.MustCompile(`Root Token: (.+)$`)

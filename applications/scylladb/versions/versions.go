@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/teran/go-docker-testsuite/applications/scylladb"
+	"github.com/teran/go-docker-testsuite/v2/applications/scylladb"
 )
 
 const (
