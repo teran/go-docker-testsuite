@@ -70,3 +70,13 @@ func main() {
 }
 
 ```
+
+## Built-in prefix based caching support
+
+go-docker-testsuite supoort prefix based caching from environment variables,
+which means if you have local registry cache AND it satisfies the requirement
+to impelemnt prefixed names like `{someprefix}/index.docker.io/library/ubuntu`
+it could be used out of the box by specifying `$IMAGE_PREFIX` environment variable.
+
+In that case the consumer has to ensure he uses full registry names (`index.docker.io/library/nginx`
+instead of `nginx`).
