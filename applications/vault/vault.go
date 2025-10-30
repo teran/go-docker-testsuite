@@ -3,9 +3,13 @@ package vault
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/vault-client-go"
+	"github.com/hashicorp/vault-client-go/schema"
 	log "github.com/sirupsen/logrus"
 	docker "github.com/teran/go-docker-testsuite"
 )
@@ -16,6 +20,9 @@ type Vault interface {
 	ClusterAddr() (string, error)
 	APIAddr() (string, error)
 	GetRootToken(ctx context.Context) (string, error)
+	GetRootClient(ctx context.Context) (*vault.Client, error)
+	CreateEngine(ctx context.Context, mountPath, engineType string) error
+	RemoveEngine(ctx context.Context, mountPath string) error
 	Close(ctx context.Context) error
 }
 
@@ -92,6 +99,75 @@ func (v *vaultImpl) GetRootToken(ctx context.Context) (string, error) {
 	return strings.TrimSpace(parts[1]), nil
 }
 
+func (v *vaultImpl) GetRootClient(ctx context.Context) (*vault.Client, error) {
+	cli, err := v.cli(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli, nil
+}
+
 func (v *vaultImpl) Close(ctx context.Context) error {
 	return v.c.Close(ctx)
+}
+
+func (v *vaultImpl) CreateEngine(ctx context.Context, mountPath, engineType string) error {
+	cli, err := v.cli(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.System.MountsEnableSecretsEngine(
+		ctx, mountPath, schema.MountsEnableSecretsEngineRequest{
+			Type:    engineType,
+			Options: map[string]any{},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *vaultImpl) RemoveEngine(ctx context.Context, mountPath string) error {
+	cli, err := v.cli(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.System.MountsDisableSecretsEngine(ctx, mountPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *vaultImpl) cli(ctx context.Context) (*vault.Client, error) {
+	hp, err := v.ClusterAddr()
+	if err != nil {
+		return nil, err
+	}
+
+	cli, err := vault.New(
+		vault.WithAddress(fmt.Sprintf("http://%s", hp)),
+		vault.WithRequestTimeout(30*time.Second),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rootToken, err := v.GetRootToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cli.SetToken(rootToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli, nil
 }

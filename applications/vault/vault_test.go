@@ -1,9 +1,7 @@
 package vault
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
 	vault "github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
@@ -15,7 +13,7 @@ const (
 	image = "index.docker.io/hashicorp/vault:1.21.0"
 )
 
-func (s *vaultTestSuite) TestSomething() {
+func (s *vaultTestSuite) TestReadWrite() {
 	_, err := s.cli().Secrets.KvV2Write(s.T().Context(), s.engineName, schema.KvV2WriteRequest{
 		Data: map[string]any{
 			"foo": "bar",
@@ -26,6 +24,12 @@ func (s *vaultTestSuite) TestSomething() {
 	sec, err := s.cli().Secrets.KvV2Read(s.T().Context(), s.engineName, vault.WithMountPath(s.engineName))
 	s.Require().NoError(err)
 	s.Require().Equal("bar", sec.Data.Data["foo"])
+}
+
+func (s *vaultTestSuite) TestAPIAddr() {
+	addr, err := s.app.APIAddr()
+	s.Require().NoError(err)
+	s.Require().NotEmpty(addr)
 }
 
 // ========================================================================
@@ -49,16 +53,7 @@ func (s *vaultTestSuite) SetupSuite() {
 }
 
 func (s *vaultTestSuite) cli() *vault.Client {
-	hp, err := s.app.ClusterAddr()
-	s.Require().NoError(err)
-
-	cli, err := vault.New(
-		vault.WithAddress(fmt.Sprintf("http://%s", hp)),
-		vault.WithRequestTimeout(30*time.Second),
-	)
-	s.Require().NoError(err)
-
-	err = cli.SetToken(s.rootToken)
+	cli, err := s.app.GetRootClient(s.T().Context())
 	s.Require().NoError(err)
 
 	return cli
@@ -67,19 +62,12 @@ func (s *vaultTestSuite) cli() *vault.Client {
 func (s *vaultTestSuite) SetupTest() {
 	s.engineName = random.String(append(random.AlphaLower, random.Numeric...), 8)
 
-	_, err := s.cli().System.MountsEnableSecretsEngine(
-		s.T().Context(), s.engineName, schema.MountsEnableSecretsEngineRequest{
-			Type:    "kv-v2",
-			Options: map[string]any{},
-		},
-	)
+	err := s.app.CreateEngine(s.T().Context(), s.engineName, "kv-v2")
 	s.Require().NoError(err)
 }
 
 func (s *vaultTestSuite) TearDownTest() {
-	_, err := s.cli().System.MountsDisableSecretsEngine(
-		s.T().Context(), s.engineName,
-	)
+	err := s.app.RemoveEngine(s.T().Context(), s.engineName)
 	s.Require().NoError(err)
 }
 
