@@ -19,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	github.com/teran/echo-grpc-server v0.0.4
-	github.com/teran/go-collection v0.4.2
+	github.com/teran/go-collection v0.4.3
 	golang.org/x/sync v0.19.0
 	google.golang.org/grpc v1.76.0
 )
@@ -93,7 +93,7 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
-	golang.org/x/time v0.12.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b // indirect
 	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
