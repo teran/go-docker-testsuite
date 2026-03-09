@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/teran/echo-grpc-server v0.0.4
 	github.com/teran/go-collection v0.4.3
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/grpc v1.79.1
 )
 
