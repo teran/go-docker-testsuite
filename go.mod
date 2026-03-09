@@ -12,7 +12,7 @@ require (
 	github.com/gocql/gocql v1.7.0
 	github.com/hashicorp/vault-client-go v0.4.3
 	github.com/jackc/pgx/v4 v4.18.3
-	github.com/minio/minio-go/v7 v7.0.98
+	github.com/minio/minio-go/v7 v7.0.99
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
