@@ -23,12 +23,24 @@ docker image, here's the list:
 Each application could provide its own interface to interact so please refer
 to applications package for some examples.
 
-## Example usage
+## Examples
 
-go-docker-testsuite provides its own interface for each application aiming to
-make it clean and easy to use them.
+Each application package includes [testable Examples](https://go.dev/blog/examples)
+(`Example*` functions in `*_test.go` files) that demonstrate real usage.
+They are displayed on [pkg.go.dev](https://pkg.go.dev/github.com/teran/go-docker-testsuite)
+and can be validated locally (requires a running Docker daemon):
 
-Here's an example for MySQL database:
+```sh
+# Run all examples (including those that need Docker):
+go test -run Example ./applications/... .
+
+# Run a specific example:
+go test -run "^Example$" ./applications/mysql/
+```
+
+See `Example()` functions in each application package for ready-to-use code.
+
+### Quick start — MySQL
 
 ```go
 package main
@@ -36,6 +48,7 @@ package main
 import (
     "context"
     "database/sql"
+    "time"
 
     _ "github.com/go-sql-driver/mysql"
 
@@ -43,7 +56,8 @@ import (
 )
 
 func main() {
-    ctx := context.Background()
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+    defer cancel()
 
     app, err := mysql.New(ctx, "index.docker.io/library/mysql:8.0.4")
     if err != nil {
@@ -59,14 +73,10 @@ func main() {
     if err != nil {
         panic(err)
     }
-
-    if err := db.Ping(); err != nil {
-        panic(err)
-    }
+    defer db.Close()
 
     if _, err := db.ExecContext(ctx, "SELECT 1"); err != nil {
         panic(err)
     }
 }
-
 ```
