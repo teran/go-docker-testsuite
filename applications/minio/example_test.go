@@ -24,7 +24,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	endpoint, err := app.GetEndpointURL()
 	if err != nil {
@@ -64,7 +64,7 @@ func Example() {
 		fmt.Printf("error downloading: %v\n", err)
 		return
 	}
-	defer obj.Close()
+	defer func() { _ = obj.Close() }()
 
 	data, _ := io.ReadAll(obj)
 	fmt.Printf("object content: %s\n", string(data))

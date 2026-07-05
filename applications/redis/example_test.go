@@ -21,12 +21,12 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	rdb := redisClient.NewClient(&redisClient.Options{
 		Addr: app.MustAddr(),
 	})
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	if err := rdb.Set(ctx, "mykey", "Hello, World!", 0).Err(); err != nil {
 		fmt.Printf("error setting key: %v\n", err)

@@ -65,7 +65,7 @@ func Example_group() {
 		fmt.Printf("error creating group: %v\n", err)
 		return
 	}
-	defer g.Close(ctx)
+	defer func() { _ = g.Close(ctx) }()
 
 	if err := g.Run(ctx); err != nil {
 		fmt.Printf("error running group: %v\n", err)
@@ -85,7 +85,7 @@ func Example_group() {
 		fmt.Printf("error dialing: %v\n", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	cli := proto.NewRemoteEchoServiceClient(conn)
 	resp, err := cli.RemoteEcho(ctx, &proto.RemoteEchoRequest{

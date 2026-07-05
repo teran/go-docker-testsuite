@@ -21,7 +21,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	if err := app.CreateDB(ctx, "example_db"); err != nil {
 		fmt.Printf("error creating database: %v\n", err)
@@ -34,7 +34,7 @@ func Example() {
 		fmt.Printf("error connecting: %v\n", err)
 		return
 	}
-	defer conn.Close(ctx)
+	defer func() { _ = conn.Close(ctx) }()
 
 	var result int
 	if err := conn.QueryRow(ctx, "SELECT 42").Scan(&result); err != nil {

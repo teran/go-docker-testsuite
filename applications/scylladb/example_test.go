@@ -19,7 +19,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	if err := app.CreateKeyspace("example_ks"); err != nil {
 		fmt.Printf("error creating keyspace: %v\n", err)

@@ -35,7 +35,7 @@ func Example_container() {
 		fmt.Printf("error creating container: %v\n", err)
 		return
 	}
-	defer c.Close(ctx)
+	defer func() { _ = c.Close(ctx) }()
 
 	if err := c.Run(ctx); err != nil {
 		fmt.Printf("error running container: %v\n", err)
@@ -59,7 +59,7 @@ func Example_container() {
 		fmt.Printf("error dialing: %v\n", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	cli := proto.NewEchoServiceClient(conn)
 	resp, err := cli.Echo(ctx, &proto.EchoRequest{Message: "Hello!"})

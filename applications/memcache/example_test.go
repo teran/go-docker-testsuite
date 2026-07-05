@@ -21,7 +21,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	addr, err := app.GetEndpointAddress()
 	if err != nil {
@@ -31,7 +31,7 @@ func Example() {
 	fmt.Println("memcache endpoint:", addr)
 
 	cli := memcacheCli.New(addr)
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	if err := cli.Set(&memcacheCli.Item{
 		Key:   "greeting",

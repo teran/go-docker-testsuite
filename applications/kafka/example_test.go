@@ -21,7 +21,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	brokerURL, err := app.GetBrokerURL(ctx)
 	if err != nil {
@@ -40,7 +40,7 @@ func Example() {
 		fmt.Printf("error creating producer: %v\n", err)
 		return
 	}
-	defer producer.Close()
+	defer func() { _ = producer.Close() }()
 
 	partition, offset, err := producer.SendMessage(&sarama.ProducerMessage{
 		Topic: "events",
@@ -57,14 +57,14 @@ func Example() {
 		fmt.Printf("error creating consumer: %v\n", err)
 		return
 	}
-	defer consumer.Close()
+	defer func() { _ = consumer.Close() }()
 
 	partConsumer, err := consumer.ConsumePartition("events", 0, sarama.OffsetNewest)
 	if err != nil {
 		fmt.Printf("error consuming partition: %v\n", err)
 		return
 	}
-	defer partConsumer.Close()
+	defer func() { _ = partConsumer.Close() }()
 
 	select {
 	case msg := <-partConsumer.Messages():

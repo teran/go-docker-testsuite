@@ -22,7 +22,7 @@ func Example() {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return
 	}
-	defer app.Close(ctx)
+	defer func() { _ = app.Close(ctx) }()
 
 	rootToken, err := app.GetRootToken(ctx)
 	if err != nil {
