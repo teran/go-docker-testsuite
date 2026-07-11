@@ -18,4 +18,7 @@ const (
 
 	// ScyllaDB image tag
 	ScyllaDB = "index.docker.io/scylladb/scylla:5.4.6"
+
+	// RabbitMQ image tag
+	RabbitMQ = "index.docker.io/library/rabbitmq:4.0-management"
 )
