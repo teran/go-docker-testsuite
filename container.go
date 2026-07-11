@@ -29,6 +29,30 @@ type (
 	NetworkID   = string
 )
 
+// ContainerOption modifies the docker HostConfig before container creation.
+type ContainerOption func(*dockerContainer.HostConfig)
+
+// WithPrivileged grants the container elevated privileges.
+func WithPrivileged() ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.Privileged = true
+	}
+}
+
+// WithTmpfs mounts tmpfs filesystems at the given paths.
+func WithTmpfs(m map[string]string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.Tmpfs = m
+	}
+}
+
+// WithBinds adds volume bind mounts (host:container[:mode]).
+func WithBinds(binds ...string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.Binds = binds
+	}
+}
+
 // Container exposes interface to control the container runtime
 type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error
@@ -52,21 +76,22 @@ type container struct {
 	networkID     NetworkID
 	ports         *PortBindings
 	indirectPorts map[string]string
+	containerOpts []ContainerOption
 }
 
 // New creates new container instance from remote docker image
-func NewContainer(name, image string, cmd []string, environment Environment, ports *PortBindings) (Container, error) {
+func NewContainer(name, image string, cmd []string, environment Environment, ports *PortBindings, opts ...ContainerOption) (Container, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	return NewContainerWithClient(cli, name, image, cmd, environment, ports)
+	return NewContainerWithClient(cli, name, image, cmd, environment, ports, opts...)
 }
 
 // NewContainerWithClient creates new container from remote docker image and allows
 // to pass custom docker.Client instance
-func NewContainerWithClient(cli *client.Client, name, image string, cmd []string, env Environment, ports *PortBindings) (Container, error) {
+func NewContainerWithClient(cli *client.Client, name, image string, cmd []string, env Environment, ports *PortBindings, opts ...ContainerOption) (Container, error) {
 	log.WithFields(log.Fields{
 		"name":  name,
 		"image": image,
@@ -90,6 +115,7 @@ func NewContainerWithClient(cli *client.Client, name, image string, cmd []string
 		env:           env,
 		ports:         ports,
 		indirectPorts: make(map[string]string),
+		containerOpts: opts,
 	}, nil
 }
 
@@ -185,6 +211,9 @@ func (c *container) Run(ctx context.Context) error {
 		Env:          c.env.Eval(newContainerInfoFromContainer(c)),
 		Cmd:          c.cmd,
 		ExposedPorts: c.ports.portSet(),
+		Labels: map[string]string{
+			"go-docker-testsuite.name": c.name,
+		},
 	}
 
 	networkConfig := &network.NetworkingConfig{}
@@ -193,7 +222,7 @@ func (c *container) Run(ctx context.Context) error {
 		"ports": c.ports,
 	}).Trace("creating new host config ...")
 
-	hostConfig, err := NewHostConfig(c.ports)
+	hostConfig, err := NewHostConfig(c.ports, c.containerOpts...)
 	if err != nil {
 		return errors.Wrap(err, "error gathering host configuration")
 	}
