@@ -55,7 +55,7 @@ jobs:
         run: go mod download
       - id: split
         run: |
-          MATRIX=$(go run tools/cmd/split_test_groups)
+          MATRIX=$(go run ./tools/cmd/split_test_groups)
           echo "Discovered matrix:"
           echo "$MATRIX"
           echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"

@@ -93,7 +93,7 @@ func discover() (core, other []string) {
 
 		// Root package or internal/ → core
 		if p == module || strings.HasPrefix(p, module+"/internal/") {
-			rel := p
+			var rel string
 			if p == module {
 				rel = "."
 			} else {
@@ -104,8 +104,7 @@ func discover() (core, other []string) {
 		}
 
 		// Everything else → other (strip module prefix for go test)
-		rel := strings.TrimPrefix(p, module+"/")
-		other = append(other, rel)
+		other = append(other, strings.TrimPrefix(p, module+"/"))
 	}
 
 	sort.Strings(core)
