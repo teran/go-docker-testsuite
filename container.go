@@ -14,7 +14,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	ptr "github.com/teran/go-collection/types/ptr"
+
+	"github.com/teran/go-docker-testsuite/internal/ptr"
 )
 
 const (
@@ -232,7 +233,7 @@ func (c *container) Close(ctx context.Context) error {
 	}
 
 	err := c.cli.ContainerStop(ctx, c.containerID, dockerContainer.StopOptions{
-		Timeout: ptr.Int(int(timeout / time.Second)),
+		Timeout: ptr.Ptr[int](int(timeout / time.Second)),
 	})
 	if err != nil {
 		return err
