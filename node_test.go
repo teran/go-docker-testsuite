@@ -35,6 +35,42 @@ func TestOneToOneRandomPort(t *testing.T) {
 	}, aliases)
 }
 
+func TestDockerIPDefault(t *testing.T) {
+	r := require.New(t)
+
+	_ = os.Unsetenv("DOCKER_HOST")
+	ip, err := DockerIP()
+	r.NoError(err)
+	r.Equal("127.0.0.1", ip)
+}
+
+func TestDockerIPValidRemote(t *testing.T) {
+	r := require.New(t)
+
+	t.Setenv("DOCKER_HOST", "tcp://1.1.1.1:2376")
+	ip, err := DockerIP()
+	r.NoError(err)
+	r.Equal("1.1.1.1", ip)
+}
+
+func TestDockerIPInvalidScheme(t *testing.T) {
+	r := require.New(t)
+
+	t.Setenv("DOCKER_HOST", "1.1.1.1")
+	_, err := DockerIP()
+	r.Error(err)
+	r.Contains(err.Error(), "malformed DOCKER_HOST value")
+}
+
+func TestDockerIPUnparsable(t *testing.T) {
+	r := require.New(t)
+
+	t.Setenv("DOCKER_HOST", "tcp://:")
+	_, err := DockerIP()
+	r.Error(err)
+	r.Contains(err.Error(), "malformed DOCKER_HOST value")
+}
+
 func TestDockerIP(t *testing.T) {
 	r := require.New(t)
 

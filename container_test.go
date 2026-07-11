@@ -18,6 +18,56 @@ func init() {
 	log.SetLevel(log.TraceLevel)
 }
 
+func TestContainerURLPortNotRegistered(t *testing.T) {
+	r := require.New(t)
+
+	t.Setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+
+	pb := NewPortBindings().
+		PortDNAT(ProtoTCP, 5555)
+	c, err := NewContainer("test-url-notfound", "test:image", nil, NewEnvironment(), pb)
+	r.NoError(err)
+
+	_, err = c.URL(ProtoTCP, 9999)
+	r.Error(err)
+	r.Contains(err.Error(), "port `9999/tcp` is not registered")
+}
+
+func TestContainerURLEmptyHostPort(t *testing.T) {
+	r := require.New(t)
+
+	c := &container{
+		ports: &PortBindings{
+			portBindings: map[string][]Binding{
+				"1234/tcp": {{HostIP: "127.0.0.1", HostPort: ""}},
+			},
+		},
+	}
+
+	_, err := c.URL(ProtoTCP, 1234)
+	r.Error(err)
+	r.Contains(err.Error(), "external port is not defined for `1234`")
+}
+
+func TestContainerURLUnexpectedPorts(t *testing.T) {
+	r := require.New(t)
+
+	c := &container{
+		ports: &PortBindings{
+			portBindings: map[string][]Binding{
+				"1234/tcp": {
+					{HostIP: "127.0.0.1", HostPort: "1234"},
+					{HostIP: "127.0.0.1", HostPort: "5678"},
+				},
+			},
+		},
+	}
+
+	_, err := c.URL(ProtoTCP, 1234)
+	r.Error(err)
+	r.Contains(err.Error(), "unexpected amount of ports returned by name")
+}
+
 func TestImagePrefix(t *testing.T) {
 	r := require.New(t)
 

@@ -76,6 +76,15 @@ func TestPortBindingsWithAliases(t *testing.T) {
 	}, pb.portAliases)
 }
 
+func TestNewDirectPortBinding(t *testing.T) {
+	r := require.New(t)
+
+	pb := NewDirectPortBinding()
+	r.NotNil(pb)
+	r.NotNil(pb.portBindings)
+	r.NotNil(pb.portAliases)
+}
+
 func TestNewHostConfig(t *testing.T) {
 	r := require.New(t)
 

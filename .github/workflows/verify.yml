@@ -72,7 +72,7 @@ jobs:
           go test -coverprofile=coverage.out -covermode=count -timeout=30m ./...
       - name: Check coverage threshold
         env:
-          THRESHOLD: 70
+          THRESHOLD: 85
         run: |
           total=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}' | sed 's/%//')
           echo "Total coverage: ${total}%"
