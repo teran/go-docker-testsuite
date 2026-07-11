@@ -32,6 +32,11 @@ other languages cannot be accepted.
      unavailable).
    - Write testable `Example*` functions for public APIs.
    - Versioned integration tests go in `applications/*/versions/`.
+   - Use `github.com/stretchr/testify/require` for all assertions.
+   - Core package coverage must stay **≥85%**. Run
+     `go test -coverprofile=coverage.out . ./internal/...` and check with
+     `go tool cover -func=coverage.out` before submitting changes that touch
+     core or internal packages.
 
 5. **No mocks**: Prefer real containers over mocks. The library exists to
    provide the highest possible test quality and accuracy without requiring

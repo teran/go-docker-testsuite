@@ -36,6 +36,13 @@ Go tests.
 - A running Docker daemon (also works with remote Docker hosts
   via `DOCKER_HOST`, etc.)
 
+## Test coverage
+
+[![Coverage](https://img.shields.io/badge/coverage-%3E%3D85%25-brightgreen)](https://github.com/teran/go-docker-testsuite/actions/workflows/verify.yml)
+
+The project enforces a **≥85%** statement coverage gate on the core package
+and internal helpers.
+
 ## Installation
 
 ```sh

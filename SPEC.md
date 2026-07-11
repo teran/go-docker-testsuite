@@ -99,6 +99,18 @@ Container.Close:
 - **Versioned integration tests** live under `applications/*/versions/`.
 - **Error wrapping** uses `github.com/pkg/errors` consistently.
 - **Logging** uses `github.com/sirupsen/logrus` — trace-level for internals.
+- **Test assertions** use `github.com/stretchr/testify` throughout.
+
+## CI
+
+- **markdownlint** — all `.md` files must conform to `.markdownlint.json` rules.
+- **golangci-lint** — mandatory before every commit.
+- **Unit tests** — run via `go test ./...` (core package without Docker, plus any
+  test that does not need a daemon).
+- **Coverage gate** — overall statement coverage must be **≥85%**.
+  Measured by `go test -coverprofile` and checked via `go tool cover` in CI.
+- **Integration tests** — require a running Docker daemon; run on CI runners
+  (`ubuntu-latest`) with full container orchestration.
 
 ## Security
 
