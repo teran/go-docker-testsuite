@@ -3,6 +3,7 @@ package docker
 import (
 	"bufio"
 	"context"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -288,15 +289,16 @@ func (c *container) pullImage(ctx context.Context) error {
 	}
 
 	if isLatest || err == errImageIsNotPulled {
-		image, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{})
+		rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{})
 		if err != nil {
 			return errors.Wrap(err, "error pulling image")
 		}
-		defer func() { _ = image.Close() }()
+		defer func() { _ = rc.Close() }()
 
-		_, err = c.cli.ImageLoad(ctx, image, client.ImageLoadWithQuiet(false))
+		// Drain the pull response to wait for the pull to complete.
+		_, err = io.Copy(io.Discard, rc)
 		if err != nil {
-			return errors.Wrap(err, "error loading image")
+			return errors.Wrap(err, "error waiting for image pull to complete")
 		}
 	}
 
