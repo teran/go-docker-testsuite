@@ -17,7 +17,7 @@ const (
 	Postgres = "index.docker.io/library/postgres:16.3"
 
 	// ScyllaDB image tag
-	ScyllaDB = "index.docker.io/scylladb/scylla:5.4.6"
+	ScyllaDB = "index.docker.io/scylladb/scylla:2026.2.0"
 
 	// RabbitMQ image tag
 	RabbitMQ = "index.docker.io/library/rabbitmq:4.0-management"
