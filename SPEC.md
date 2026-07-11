@@ -105,10 +105,16 @@ Container.Close:
 
 - **markdownlint** — all `.md` files must conform to `.markdownlint.json` rules.
 - **golangci-lint** — mandatory before every commit.
-- **Unit tests** — run via `go test ./...` (core package without Docker, plus any
-  test that does not need a daemon).
-- **Coverage gate** — overall statement coverage must be **≥85%**.
-  Measured by `go test -coverprofile` and checked via `go tool cover` in CI.
+- **Tests** — split into parallel CI jobs via matrix strategy to minimise wall-clock
+  time. Each job runs with `-race` and `-timeout` appropriate to its group.
+  - **core** — root package (`.`) and `./internal/...`; includes the coverage gate.
+  - **postgres-1** / **postgres-2** — PostgreSQL and its version tests.
+  - **scylladb** — ScyllaDB and its version tests.
+  - **datastores** — MySQL, Redis, Memcache, MinIO, Vault.
+  - **messaging** — Kafka and RabbitMQ.
+- **Coverage gate** — overall statement coverage of the core package and internal
+  helpers must be **≥85%**. Measured by `go test -coverprofile` on the `core` group
+  and checked via `go tool cover` in CI.
 - **Integration tests** — require a running Docker daemon; run on CI runners
   (`ubuntu-latest`) with full container orchestration.
 

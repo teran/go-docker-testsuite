@@ -43,7 +43,58 @@ jobs:
           working-directory: .
 
   tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: core
+            packages: . ./internal/...
+            check_coverage: true
+            timeout_minutes: 10
+          - name: postgres-1
+            packages: >-
+              ./applications/postgres
+              ./applications/postgres/versions/10.21
+              ./applications/postgres/versions/11.16
+              ./applications/postgres/versions/12.11
+              ./applications/postgres/versions/13.7
+              ./applications/postgres/versions/13.22
+              ./applications/postgres/versions/14.3
+              ./applications/postgres/versions/14.19
+            timeout_minutes: 20
+          - name: postgres-2
+            packages: >-
+              ./applications/postgres/versions/15.7
+              ./applications/postgres/versions/15.14
+              ./applications/postgres/versions/16.3
+              ./applications/postgres/versions/16.10
+              ./applications/postgres/versions/17.4
+              ./applications/postgres/versions/17.5
+              ./applications/postgres/versions/17.6
+              ./applications/postgres/versions/18.0
+              ./applications/postgres/versions/18.4
+            timeout_minutes: 20
+          - name: scylladb
+            packages: >-
+              ./applications/scylladb
+              ./applications/scylladb/versions/...
+            timeout_minutes: 20
+          - name: datastores
+            packages: >-
+              ./applications/mysql/versions/...
+              ./applications/redis/versions/...
+              ./applications/memcache
+              ./applications/minio
+              ./applications/vault
+            timeout_minutes: 20
+          - name: messaging
+            packages: >-
+              ./applications/kafka
+              ./applications/rabbitmq
+              ./applications/rabbitmq/versions/...
+            timeout_minutes: 20
     runs-on: ubuntu-latest
+    name: tests (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -56,8 +107,9 @@ jobs:
         env:
           IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
         run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic -timeout=30m ./...
+          go test -v -race -coverprofile=coverage.out -covermode=atomic -timeout=${{ matrix.timeout_minutes }}m ${{ matrix.packages }}
       - name: Check coverage threshold
+        if: ${{ matrix.check_coverage }}
         env:
           THRESHOLD: 85
         run: |
