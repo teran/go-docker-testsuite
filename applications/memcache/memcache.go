@@ -41,7 +41,9 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 	started := false
 	defer func() {
 		if !started {
-			_ = c.Close(ctx)
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
 		}
 	}()
 
