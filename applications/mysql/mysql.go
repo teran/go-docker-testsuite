@@ -30,12 +30,12 @@ func validateDBName(name string) error {
 
 	// First character: letter, underscore, or Unicode letter
 	r := []rune(name)
-	if !(r[0] == '_' || unicode.IsLetter(r[0])) {
+	if r[0] != '_' && !unicode.IsLetter(r[0]) {
 		return errors.Errorf("invalid database name %q: must start with a letter or underscore", name)
 	}
 
 	for _, c := range r {
-		if !(c == '_' || c == '$' || unicode.IsLetter(c) || unicode.IsDigit(c)) {
+		if c != '_' && c != '$' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
 			return errors.Errorf("invalid database name %q: character %q is not allowed", name, c)
 		}
 	}

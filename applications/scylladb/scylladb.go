@@ -29,12 +29,12 @@ func validateKeyspaceName(name string) error {
 	}
 
 	r := []rune(name)
-	if !(r[0] == '_' || unicode.IsLetter(r[0])) {
+	if r[0] != '_' && !unicode.IsLetter(r[0]) {
 		return fmt.Errorf("invalid keyspace name %q: must start with a letter or underscore", name)
 	}
 
 	for _, c := range r {
-		if !(c == '_' || unicode.IsLetter(c) || unicode.IsDigit(c)) {
+		if c != '_' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
 			return fmt.Errorf("invalid keyspace name %q: character %q is not allowed", name, c)
 		}
 	}
