@@ -33,8 +33,8 @@ Go tests.
 ## Requirements
 
 - Go 1.26+ (uses `go.1.26.0` directive in `go.mod`)
-- A running Docker daemon (also works with Docker Desktop, Colima,
-  remote Docker hosts via `DOCKER_HOST`, etc.)
+- A running Docker daemon (also works with remote Docker hosts
+  via `DOCKER_HOST`, etc.)
 
 ## Installation
 
