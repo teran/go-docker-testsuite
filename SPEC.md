@@ -100,6 +100,17 @@ Container.Close:
 - **Error wrapping** uses `github.com/pkg/errors` consistently.
 - **Logging** uses `github.com/sirupsen/logrus` — trace-level for internals.
 
+## CI
+
+- **markdownlint** — all `.md` files must conform to `.markdownlint.json` rules.
+- **golangci-lint** — mandatory before every commit.
+- **Tests** — automatically discovered and split into parallel CI groups by
+  `scripts/split-test-groups.py`. A dedicated `discover` job runs the script
+  and feeds a dynamic matrix to the `tests` job. New test packages are picked
+  up automatically without editing workflow files.
+- **Integration tests** — require a running Docker daemon; run on CI runners
+  (`ubuntu-latest`) with full container orchestration.
+
 ## Security
 
 - Application wrappers validate database/keyspace names to prevent SQL/CQL
