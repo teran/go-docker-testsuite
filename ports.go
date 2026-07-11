@@ -22,7 +22,7 @@ type Binding struct {
 }
 
 // NewHostConfig creates new HostConfig instance
-func NewHostConfig(pb *PortBindings) (*dockerContainer.HostConfig, error) {
+func NewHostConfig(pb *PortBindings, opts ...ContainerOption) (*dockerContainer.HostConfig, error) {
 	pm := nat.PortMap{}
 	for k, v := range pb.portBindings {
 		for _, pb := range v {
@@ -34,10 +34,14 @@ func NewHostConfig(pb *PortBindings) (*dockerContainer.HostConfig, error) {
 		}
 	}
 
-	return &dockerContainer.HostConfig{
+	hc := &dockerContainer.HostConfig{
 		NetworkMode:  dockerContainer.NetworkMode("default"),
 		PortBindings: pm,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(hc)
+	}
+	return hc, nil
 }
 
 // PortBindings is a full mapping of internal & external docker container ports
