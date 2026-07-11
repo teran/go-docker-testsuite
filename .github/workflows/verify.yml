@@ -55,6 +55,33 @@ jobs:
       - name: Test with the Go CLI
         run: go test -v -p 1 ./...
 
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Install dependencies
+        run: go mod download
+      - name: Run tests with coverage
+        env:
+          IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
+        run: |
+          go test -coverprofile=coverage.out -covermode=count -timeout=30m ./...
+      - name: Check coverage threshold
+        env:
+          THRESHOLD: 70
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}' | sed 's/%//')
+          echo "Total coverage: ${total}%"
+          if (( $(echo "${total} < ${THRESHOLD}" | bc -l) )); then
+            echo "❌ Coverage ${total}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+          echo "✅ Coverage ${total}% meets threshold ${THRESHOLD}%"
+
   build:
     runs-on: ubuntu-latest
     steps:
