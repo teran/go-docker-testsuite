@@ -7,19 +7,25 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/teran/go-docker-testsuite/pulls)
 
-**Go library to run third-party dependencies in Docker containers** for integration testing.
-Spin up any Docker image — databases, queues, caches, or object storage — and connect to
-them via network from your Go tests.
+**Go library to run third-party dependencies in Docker containers**
+for integration testing. Spin up any Docker image — databases, queues,
+caches, or object storage — and connect to them via network from your
+Go tests.
 
 ---
 
 ## Features
 
-- **Container** — low-level wrapper to create, run, await output, and clean up any Docker image
-- **Group** — run multiple containers in an isolated Docker network with IP-level connectivity
-- **Applications** — ready-to-use wrappers for popular services (MySQL, PostgreSQL, Redis, Kafka, etc.)
-- **Hooks** — lifecycle callbacks (BeforeRun, AfterRun, BeforeClose, AfterClose) per container
-- **Matchers** — await container logs with substring, exact, or regexp matchers before proceeding
+- **Container** — low-level wrapper to create, run, await output, and
+  clean up any Docker image
+- **Group** — run multiple containers in an isolated Docker network
+  with IP-level connectivity
+- **Applications** — ready-to-use wrappers for popular services
+  (MySQL, PostgreSQL, Redis, Kafka, etc.)
+- **Hooks** — lifecycle callbacks
+  (BeforeRun, AfterRun, BeforeClose, AfterClose) per container
+- **Matchers** — await container logs with substring, exact,
+  or regexp matchers before proceeding
 - **Environment builder** — fluent DSL to declare typed environment variables
 - **Port bindings** — DNAT port mapping with random or one-to-one port allocation
 - **IMAGE_PREFIX** — optional `IMAGE_PREFIX` env var to route images through a proxy/mirror
@@ -27,7 +33,8 @@ them via network from your Go tests.
 ## Requirements
 
 - Go 1.26+ (uses `go.1.26.0` directive in `go.mod`)
-- A running Docker daemon (also works with Docker Desktop, Colima, remote Docker hosts via `DOCKER_HOST`, etc.)
+- A running Docker daemon (also works with Docker Desktop, Colima,
+  remote Docker hosts via `DOCKER_HOST`, etc.)
 
 ## Installation
 
@@ -37,25 +44,26 @@ go get github.com/teran/go-docker-testsuite
 
 ## Applications
 
-The test suite provides ready-to-use wrappers (each returns a typed client interface and handles
-startup, health checks, and cleanup). Here's the full list:
+The test suite provides ready-to-use wrappers (each returns a typed
+client interface and handles startup, health checks, and cleanup).
+Here's the full list:
 
-| Application | Package | Description |
-|---|---|---|
-| [Kafka](https://kafka.apache.org/) | [`applications/kafka`](./applications/kafka) | Apache Kafka with Sarama client |
-| [Memcache](https://memcached.org/) | [`applications/memcache`](./applications/memcache) | Memcached with gomemcache client |
-| [MinIO](https://min.io/) | [`applications/minio`](./applications/minio) | S3-compatible object storage |
-| [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql) | MySQL-compatible databases |
-| [PostgreSQL](https://www.postgresql.org/) | [`applications/postgres`](./applications/postgres) | PostgreSQL with pgx client |
-| [Redis](https://redis.io/) | [`applications/redis`](./applications/redis) | Redis with go-redis client |
-| [ScyllaDB](https://www.scylladb.com/) | [`applications/scylladb`](./applications/scylladb) | ScyllaDB with gocql client |
-| [Vault](https://www.vaultproject.io/) | [`applications/vault`](./applications/vault) | HashiCorp Vault |
-| — | `applications/*/versions/` | Per-version integration tests |
+| Application                                                | Package                                            | Description                      |
+| ---------------------------------------------------------- | -------------------------------------------------- | -------------------------------- |
+| [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)       | Apache Kafka with Sarama client  |
+| [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache) | Memcached with gomemcache client |
+| [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)       | S3-compatible object storage     |
+| [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)       | MySQL-compatible databases       |
+| [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres) | PostgreSQL with pgx client       |
+| [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)       | Redis with go-redis client       |
+| [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb) | ScyllaDB with gocql client       |
+| [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)       | HashiCorp Vault                  |
+| —                                                          | `applications/*/versions/`                         | Per-version integration tests    |
 
 Many application packages include [testable Examples](https://go.dev/blog/examples)
-(`Example*` functions in `*_test.go` files) that demonstrate real usage. They are displayed
-on [pkg.go.dev](https://pkg.go.dev/github.com/teran/go-docker-testsuite) and can be
-verified locally:
+(`Example*` functions in `*_test.go` files) that demonstrate real
+usage. They are displayed on [pkg.go.dev](https://pkg.go.dev/github.com/teran/go-docker-testsuite)
+and can be verified locally:
 
 ```sh
 # Run all examples (requires a running Docker daemon):
