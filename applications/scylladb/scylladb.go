@@ -181,5 +181,8 @@ func (s *scylladb) DropKeyspace(name string) error {
 }
 
 func (s *scylladb) Close(ctx context.Context) error {
+	if s.session != nil {
+		s.session.Close()
+	}
 	return s.c.Close(ctx)
 }
