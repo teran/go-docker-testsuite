@@ -4,13 +4,48 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gocql/gocql"
 
 	"github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
 )
+
+const maxKeyspaceNameLen = 48
+
+// validateKeyspaceName validates that name is a safe CQL identifier.
+// CQL identifiers allow: letters, underscore, and digits.
+// ScyllaDB keyspace names are limited to 48 characters.
+// See https://docs.scylladb.com/stable/cql/ddl.html
+func validateKeyspaceName(name string) error {
+	if name == "" {
+		return fmt.Errorf("keyspace name must not be empty")
+	}
+	if len(name) > maxKeyspaceNameLen {
+		return fmt.Errorf("keyspace name %q exceeds max length of %d characters", name, maxKeyspaceNameLen)
+	}
+
+	r := []rune(name)
+	if !(r[0] == '_' || unicode.IsLetter(r[0])) {
+		return fmt.Errorf("invalid keyspace name %q: must start with a letter or underscore", name)
+	}
+
+	for _, c := range r {
+		if !(c == '_' || unicode.IsLetter(c) || unicode.IsDigit(c)) {
+			return fmt.Errorf("invalid keyspace name %q: character %q is not allowed", name, c)
+		}
+	}
+
+	return nil
+}
+
+// quoteCQLIdentifier wraps name in double quotes, escaping embedded quotes by doubling.
+func quoteCQLIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+}
 
 type ScyllaDB interface {
 	ClusterConfig(keyspaceName string) (*gocql.ClusterConfig, error)
@@ -112,17 +147,25 @@ func (s *scylladb) ClusterConfig(keyspace string) (*gocql.ClusterConfig, error) 
 }
 
 func (s *scylladb) CreateKeyspace(name string) error {
+	if err := validateKeyspaceName(name); err != nil {
+		return err
+	}
+
 	q := fmt.Sprintf(
 		"CREATE KEYSPACE %s WITH replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }",
-		name,
+		quoteCQLIdentifier(name),
 	)
 	return s.session.Query(q).Exec()
 }
 
 func (s *scylladb) DropKeyspace(name string) error {
+	if err := validateKeyspaceName(name); err != nil {
+		return err
+	}
+
 	q := fmt.Sprintf(
 		"DROP KEYSPACE %s",
-		name,
+		quoteCQLIdentifier(name),
 	)
 	return s.session.Query(q).Exec()
 }
