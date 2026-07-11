@@ -31,6 +31,13 @@ func New(ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -41,6 +48,7 @@ func New(ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
+	started = true
 	return &redis{
 		c: c,
 	}, nil

@@ -80,6 +80,13 @@ func New(ctx context.Context, image string) (MySQL, error) {
 		c: c,
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	if err := c.Run(ctx); err != nil {
 		return nil, errors.Wrap(err, "error running container")
 	}
@@ -116,6 +123,7 @@ func New(ctx context.Context, image string) (MySQL, error) {
 		time.Sleep(1 * time.Second)
 	}
 
+	started = true
 	return app, nil
 }
 

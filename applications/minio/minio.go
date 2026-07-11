@@ -52,6 +52,13 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -64,6 +71,7 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 		return nil, err
 	}
 
+	started = true
 	return &minio{
 		c: c,
 	}, nil

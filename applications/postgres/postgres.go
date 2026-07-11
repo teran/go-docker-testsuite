@@ -78,6 +78,13 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -91,6 +98,7 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 	// NB: give it some time to assign a port
 	time.Sleep(1 * time.Second)
 
+	started = true
 	return &postgresql{
 		c: c,
 	}, nil

@@ -45,6 +45,13 @@ func New(ctx context.Context, image string) (Vault, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -55,6 +62,7 @@ func New(ctx context.Context, image string) (Vault, error) {
 		return nil, err
 	}
 
+	started = true
 	return &vaultImpl{
 		c: c,
 	}, nil

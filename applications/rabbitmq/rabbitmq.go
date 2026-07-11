@@ -56,6 +56,13 @@ func NewWithImage(ctx context.Context, image string) (RabbitMQ, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			_ = c.Close(ctx)
+		}
+	}()
+
 	if err := c.Run(ctx); err != nil {
 		return nil, err
 	}
@@ -66,6 +73,7 @@ func NewWithImage(ctx context.Context, image string) (RabbitMQ, error) {
 
 	time.Sleep(1 * time.Second)
 
+	started = true
 	return &rabbitmq{
 		c: c,
 	}, nil
