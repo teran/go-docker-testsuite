@@ -5,7 +5,7 @@ const (
 	EchoServer = "ghcr.io/teran/echo-grpc-server:latest"
 
 	// Memcache image tag
-	Memcache = "index.docker.io/memcached:1.6.29-alpine3.20"
+	Memcache = "index.docker.io/library/memcached:1.6.29-alpine3.20"
 
 	// Kafka image
 	Kafka = "index.docker.io/apache/kafka:4.0.0"
