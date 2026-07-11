@@ -5,13 +5,48 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
+	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	docker "github.com/teran/go-docker-testsuite"
 )
+
+const maxDBNameLen = 64
+
+// validateDBName validates that name is a safe MySQL unquoted identifier.
+// MySQL unquoted identifiers allow: [a-zA-Z_$] + digits.
+// See https://dev.mysql.com/doc/en/identifiers.html
+func validateDBName(name string) error {
+	if name == "" {
+		return errors.New("database name must not be empty")
+	}
+	if len(name) > maxDBNameLen {
+		return errors.Errorf("database name %q exceeds max length of %d bytes", name, maxDBNameLen)
+	}
+
+	// First character: letter, underscore, or Unicode letter
+	r := []rune(name)
+	if r[0] != '_' && !unicode.IsLetter(r[0]) {
+		return errors.Errorf("invalid database name %q: must start with a letter or underscore", name)
+	}
+
+	for _, c := range r {
+		if c != '_' && c != '$' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
+			return errors.Errorf("invalid database name %q: character %q is not allowed", name, c)
+		}
+	}
+
+	return nil
+}
+
+// quoteMySQLIdentifier wraps name in backticks, escaping embedded backticks by doubling.
+func quoteMySQLIdentifier(name string) string {
+	return "`" + strings.ReplaceAll(name, "`", "``") + "`"
+}
 
 type MySQL interface {
 	Close(ctx context.Context) error
@@ -85,6 +120,10 @@ func New(ctx context.Context, image string) (MySQL, error) {
 }
 
 func (m *mysql) CreateDB(ctx context.Context, name string) error {
+	if err := validateDBName(name); err != nil {
+		return err
+	}
+
 	dsn, err := m.DSN("")
 	if err != nil {
 		return errors.Wrap(err, "error obtaining database DSN")
@@ -100,11 +139,15 @@ func (m *mysql) CreateDB(ctx context.Context, name string) error {
 		return errors.Wrap(err, "error pinging database")
 	}
 
-	_, err = c.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s", name))
+	_, err = c.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE %s", quoteMySQLIdentifier(name)))
 	return errors.Wrap(err, "error executing SQL query")
 }
 
 func (m *mysql) DropDB(ctx context.Context, name string) error {
+	if err := validateDBName(name); err != nil {
+		return err
+	}
+
 	dsn, err := m.DSN("")
 	if err != nil {
 		return errors.Wrap(err, "error obtaining database DSN")
@@ -120,7 +163,7 @@ func (m *mysql) DropDB(ctx context.Context, name string) error {
 		return errors.Wrap(err, "error pinging database")
 	}
 
-	_, err = c.ExecContext(ctx, fmt.Sprintf("DROP DATABASE %s", name))
+	_, err = c.ExecContext(ctx, fmt.Sprintf("DROP DATABASE %s", quoteMySQLIdentifier(name)))
 	return errors.Wrap(err, "error executing SQL query")
 }
 
