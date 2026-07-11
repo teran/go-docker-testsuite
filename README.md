@@ -187,6 +187,14 @@ Each application package includes testable examples. Run them with:
 go test -run Example ./applications/... .
 ```
 
+## Project docs
+
+- [SPEC.md](./SPEC.md) — Architecture and design specification
+- [AGENTS.md](./AGENTS.md) — Agent instructions for AI-assisted development
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to contribute
+- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) — Community guidelines
+- [SECURITY.md](./SECURITY.md) — Security policy and vulnerability reporting
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
