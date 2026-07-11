@@ -2,39 +2,42 @@ package ptr
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPtr(t *testing.T) {
+	r := require.New(t)
+
 	v := 42
 	p := Ptr(v)
-	if *p != v {
-		t.Errorf("Ptr(%d) = %d, want %d", v, *p, v)
-	}
-	if p == nil {
-		t.Error("Ptr() returned nil")
-	}
+	r.NotNil(p)
+	r.Equal(v, *p)
 }
 
 func TestPtrString(t *testing.T) {
+	r := require.New(t)
+
 	v := "hello"
 	p := Ptr(v)
-	if *p != v {
-		t.Errorf("Ptr(%s) = %s, want %s", v, *p, v)
-	}
+	r.NotNil(p)
+	r.Equal(v, *p)
 }
 
 func TestPtrBool(t *testing.T) {
+	r := require.New(t)
+
 	v := true
 	p := Ptr(v)
-	if *p != v {
-		t.Errorf("Ptr(%v) = %v, want %v", v, *p, v)
-	}
+	r.NotNil(p)
+	r.Equal(v, *p)
 }
 
 func TestPtrZeroValue(t *testing.T) {
+	r := require.New(t)
+
 	var v int64 = 0
 	p := Ptr(v)
-	if *p != 0 {
-		t.Errorf("Ptr(0) = %d, want 0", *p)
-	}
+	r.NotNil(p)
+	r.Equal(int64(0), *p)
 }
