@@ -90,6 +90,15 @@ func NewWithImage(ctx context.Context, image string) (K3s, error) {
 		return nil, errors.Wrap(err, "error creating k3s container")
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	if err := c.Run(ctx); err != nil {
 		return nil, errors.Wrap(err, "error running k3s container")
 	}
@@ -122,6 +131,7 @@ func NewWithImage(ctx context.Context, image string) (K3s, error) {
 		return nil, errors.Wrap(err, "error rewriting kubeconfig")
 	}
 
+	started = true
 	return k, nil
 }
 

@@ -84,6 +84,15 @@ func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -120,6 +129,7 @@ func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 
 	sd.session = session
 
+	started = true
 	return sd, nil
 }
 

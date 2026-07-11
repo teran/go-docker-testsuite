@@ -38,6 +38,15 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	if err := c.Run(ctx); err != nil {
 		return nil, err
 	}
@@ -59,6 +68,7 @@ func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 				continue
 			}
 
+			started = true
 			return &memcache{
 				c: c,
 			}, nil

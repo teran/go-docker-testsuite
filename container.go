@@ -255,11 +255,25 @@ func (c *container) Run(ctx context.Context) error {
 	return errors.Wrap(err, "error starting container")
 }
 
-// Close cleans up the env (stops & removes the image)
+// Close cleans up the env (stops & removes the container)
 func (c *container) Close(ctx context.Context) error {
+	if c.containerID == "" {
+		return nil
+	}
+
+	// If the provided context is already expired, use a fresh one for cleanup
+	// so a test timeout doesn't prevent container removal.
+	if dl, ok := ctx.Deadline(); ok && time.Until(dl) <= 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), defaultStopTimeout)
+		defer cancel()
+	}
+
 	timeout := defaultStopTimeout
 	if dl, ok := ctx.Deadline(); ok {
-		timeout = time.Until(dl)
+		if remaining := time.Until(dl); remaining > 0 {
+			timeout = remaining
+		}
 	}
 
 	err := c.cli.ContainerStop(ctx, c.containerID, dockerContainer.StopOptions{
@@ -277,7 +291,7 @@ func (c *container) Close(ctx context.Context) error {
 		return err
 	}
 
-	return c.cli.Close()
+	return nil
 }
 
 func (c *container) pullImage(ctx context.Context) error {

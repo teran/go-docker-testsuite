@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	"github.com/teran/go-docker-testsuite"
 )
@@ -31,6 +32,15 @@ func New(ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -41,6 +51,7 @@ func New(ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
+	started = true
 	return &redis{
 		c: c,
 	}, nil

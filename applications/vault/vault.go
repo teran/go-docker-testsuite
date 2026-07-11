@@ -45,6 +45,15 @@ func New(ctx context.Context, image string) (Vault, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -55,6 +64,7 @@ func New(ctx context.Context, image string) (Vault, error) {
 		return nil, err
 	}
 
+	started = true
 	return &vaultImpl{
 		c: c,
 	}, nil

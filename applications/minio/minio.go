@@ -3,6 +3,7 @@ package minio
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
@@ -52,6 +53,15 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 		return nil, err
 	}
 
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err
@@ -64,6 +74,7 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 		return nil, err
 	}
 
+	started = true
 	return &minio{
 		c: c,
 	}, nil
