@@ -6,7 +6,8 @@ import (
 	vault "github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
 	"github.com/stretchr/testify/suite"
-	"github.com/teran/go-collection/random"
+
+	"github.com/teran/go-docker-testsuite/internal/random"
 )
 
 const (
