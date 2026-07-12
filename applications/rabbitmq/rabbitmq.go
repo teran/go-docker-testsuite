@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -136,10 +137,20 @@ func (r *rabbitmq) CreateUser(ctx context.Context, username, password string) er
 		return err
 	}
 
-	body := fmt.Sprintf(`{"password":"%s","tags":"administrator"}`, password)
+	body, err := json.Marshal(struct {
+		Password string `json:"password"`
+		Tags     string `json:"tags"`
+	}{
+		Password: password,
+		Tags:     "administrator",
+	})
+	if err != nil {
+		return err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
 		fmt.Sprintf("%s/api/users/%s", mgmtURL, url.PathEscape(username)),
-		strings.NewReader(body))
+		strings.NewReader(string(body)))
 	if err != nil {
 		return err
 	}
@@ -166,13 +177,22 @@ func (r *rabbitmq) SetPermissions(ctx context.Context, vhost, username, configur
 		return err
 	}
 
-	body := fmt.Sprintf(
-		`{"configure":"%s","write":"%s","read":"%s"}`,
-		configure, write, read,
-	)
+	body, err := json.Marshal(struct {
+		Configure string `json:"configure"`
+		Write     string `json:"write"`
+		Read      string `json:"read"`
+	}{
+		Configure: configure,
+		Write:     write,
+		Read:      read,
+	})
+	if err != nil {
+		return err
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
 		fmt.Sprintf("%s/api/permissions/%s/%s", mgmtURL, url.PathEscape(vhost), url.PathEscape(username)),
-		strings.NewReader(body))
+		strings.NewReader(string(body)))
 	if err != nil {
 		return err
 	}
