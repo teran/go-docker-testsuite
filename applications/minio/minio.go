@@ -89,7 +89,7 @@ func (m *minio) GetEndpointURL() (string, error) {
 }
 
 func (m *minio) GetConsoleURL() (string, error) {
-	hp, err := m.c.URL(docker.ProtoTCP, tcpPortS3)
+	hp, err := m.c.URL(docker.ProtoTCP, tcpPortConsole)
 	if err != nil {
 		return "", err
 	}
