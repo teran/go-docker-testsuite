@@ -53,7 +53,7 @@ func (g *group) Close(ctx context.Context) error {
 
 		err = app.container.Close(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "error closing container %s: `%s`", app.container.Name(), HookTypeBeforeClose)
+			return errors.Wrapf(err, "error closing container `%s`", app.container.Name())
 		}
 
 		err = runHooks(ctx, app, HookTypeAfterClose)
@@ -119,7 +119,7 @@ func runHooks(ctx context.Context, app *Application, ht HookType) error {
 		for _, h := range app.hooks {
 			err := h(ctx, ht, app.container)
 			if err != nil {
-				return errors.Wrapf(err, "error calling `%s` hook for `%s`", HookTypeBeforeClose, app.container.Name())
+				return errors.Wrapf(err, "error calling `%s` hook for `%s`", ht, app.container.Name())
 			}
 		}
 	}
