@@ -42,6 +42,7 @@ Each sub-package wraps a specific service and returns a typed client:
 
 | Package | Service | Client library |
 | --------- | --------- | ---------------- |
+| `applications/k3s` | K3s (Kubernetes) | `k8s.io/client-go` |
 | `applications/kafka` | Apache Kafka | `github.com/IBM/sarama` |
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO (S3) | `github.com/minio/minio-go/v7` |

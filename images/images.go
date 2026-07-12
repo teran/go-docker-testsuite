@@ -23,5 +23,5 @@ const (
 	RabbitMQ = "index.docker.io/library/rabbitmq:4.0-management"
 
 	// K3s image tag
-	K3s = "index.docker.io/rancher/k3s:v1.31.2-k3s1"
+	K3s = "index.docker.io/rancher/k3s:v1.36.2-k3s1"
 )

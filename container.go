@@ -59,6 +59,7 @@ type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error
 	GetOutput(ctx context.Context, m ...Matcher) ([]string, error)
 	Close(ctx context.Context) error
+	ID() ContainerID
 	Name() string
 	NetworkAttach(networkID string) error
 	Ping(ctx context.Context) error
@@ -185,6 +186,11 @@ func (c *container) GetOutput(ctx context.Context, ms ...Matcher) ([]string, err
 
 func (c *container) Name() string {
 	return c.name
+}
+
+// ID returns the Docker container ID. It is only available after Run() is called.
+func (c *container) ID() ContainerID {
+	return c.containerID
 }
 
 // NetworkAttach attaches the container to the specific network
