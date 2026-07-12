@@ -43,28 +43,34 @@ func NewGroupWithClient(cli *client.Client, name string, apps ...*Application) (
 }
 
 func (g *group) Close(ctx context.Context) error {
+	var errs []error
+
 	for i := len(g.apps) - 1; i >= 0; i-- {
 		app := g.apps[i]
 
-		err := runHooks(ctx, app, HookTypeBeforeClose)
-		if err != nil {
-			return err
+		if err := runHooks(ctx, app, HookTypeBeforeClose); err != nil {
+			log.WithError(err).Errorf("error in BeforeClose hook for %s", app.container.Name())
+			errs = append(errs, err)
 		}
 
-		err = app.container.Close(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "error closing container `%s`", app.container.Name())
+		if err := app.container.Close(ctx); err != nil {
+			log.WithError(err).Errorf("error closing container %s", app.container.Name())
+			errs = append(errs, err)
 		}
 
-		err = runHooks(ctx, app, HookTypeAfterClose)
-		if err != nil {
-			return err
+		if err := runHooks(ctx, app, HookTypeAfterClose); err != nil {
+			log.WithError(err).Errorf("error in AfterClose hook for %s", app.container.Name())
+			errs = append(errs, err)
 		}
 	}
 
-	err := g.cli.NetworkRemove(ctx, g.networkID)
-	if err != nil {
-		return errors.Wrapf(err, "error removing network `%s`", g.networkID)
+	if err := g.cli.NetworkRemove(ctx, g.networkID); err != nil {
+		log.WithError(err).Errorf("error removing network %s", g.networkID)
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errs[0]
 	}
 	return nil
 }
