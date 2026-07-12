@@ -5,35 +5,38 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 
 	pgx "github.com/jackc/pgx/v4"
 
+	"github.com/pkg/errors"
 	"github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
 )
 
 const maxDBNameLen = 63
 
-// validateDBName validates that name is a safe PostgreSQL unquoted identifier.
-// PostgreSQL allows: letters (including Unicode), underscore, digits, and dollar signs ($).
+// validateDBName validates that name is a safe PostgreSQL identifier.
+// Only printable ASCII letters, digits, and underscore are allowed to
+// prevent Unicode normalization / homoglyph attacks. Note that `$` is
+// NOT valid in PostgreSQL unquoted identifiers (it is only allowed inside
+// dollar-quoted string constants).
 // See https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
 func validateDBName(name string) error {
 	if name == "" {
-		return fmt.Errorf("database name must not be empty")
+		return errors.New("database name must not be empty")
 	}
 	if len(name) > maxDBNameLen {
-		return fmt.Errorf("database name %q exceeds max length of %d bytes", name, maxDBNameLen)
+		return errors.Errorf("database name %q exceeds max length of %d bytes", name, maxDBNameLen)
 	}
 
-	r := []rune(name)
-	if r[0] != '_' && !unicode.IsLetter(r[0]) {
-		return fmt.Errorf("invalid database name %q: must start with a letter or underscore", name)
-	}
-
-	for _, c := range r {
-		if c != '_' && c != '$' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
-			return fmt.Errorf("invalid database name %q: character %q is not allowed", name, c)
+	for _, c := range name {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '_':
+		default:
+			return errors.Errorf("invalid database name %q: character %q is not allowed", name, c)
 		}
 	}
 
