@@ -43,8 +43,19 @@ func NewExactMatcher(s string) Matcher {
 	}
 }
 
+// NewRegexpMatcher returns a matcher that succeeds when the line matches
+// the compiled regular expression.
 func NewRegexpMatcher(r *regexp.Regexp) Matcher {
 	return func(l string) bool {
-		return r.MatchString(l)
+		ok := r.MatchString(l)
+
+		log.WithFields(log.Fields{
+			"kind":    "regexp",
+			"pattern": r.String(),
+			"line":    l,
+			"result":  ok,
+		}).Trace("matching string")
+
+		return ok
 	}
 }
