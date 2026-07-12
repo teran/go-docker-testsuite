@@ -81,6 +81,4 @@ func TestGroup(t *testing.T) {
 	r.NoError(err)
 	r.Equal("test message", resp.GetMessage())
 
-	err = g.Close(ctx)
-	r.NoError(err)
 }

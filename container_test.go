@@ -45,13 +45,13 @@ func TestContainerRun(t *testing.T) {
 	)
 	r.NoError(err)
 
-	defer func() { _ = c.Close(ctx) }()
-
 	err = c.Ping(ctx)
 	r.NoError(err)
 
 	err = c.Run(ctx)
 	r.NoError(err)
+
+	defer func() { _ = c.Close(ctx) }()
 
 	err = c.AwaitOutput(ctx, NewSubstringMatcher("running GRPC echo server"))
 	r.NoError(err)
