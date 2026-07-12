@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -17,8 +16,9 @@ import (
 
 const maxDBNameLen = 64
 
-// validateDBName validates that name is a safe MySQL unquoted identifier.
-// MySQL unquoted identifiers allow: [a-zA-Z_$] + digits.
+// validateDBName validates that name is a safe MySQL identifier.
+// Only printable ASCII letters, digits, underscore, and dollar sign are
+// allowed to prevent Unicode normalization / homoglyph attacks.
 // See https://dev.mysql.com/doc/en/identifiers.html
 func validateDBName(name string) error {
 	if name == "" {
@@ -28,14 +28,14 @@ func validateDBName(name string) error {
 		return errors.Errorf("database name %q exceeds max length of %d bytes", name, maxDBNameLen)
 	}
 
-	// First character: letter, underscore, or Unicode letter
-	r := []rune(name)
-	if r[0] != '_' && !unicode.IsLetter(r[0]) {
-		return errors.Errorf("invalid database name %q: must start with a letter or underscore", name)
-	}
-
-	for _, c := range r {
-		if c != '_' && c != '$' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
+	for i, c := range name {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case i > 0 && c == '$':
+		case c == '_':
+		default:
 			return errors.Errorf("invalid database name %q: character %q is not allowed", name, c)
 		}
 	}

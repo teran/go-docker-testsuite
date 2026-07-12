@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gocql/gocql"
+	"github.com/pkg/errors"
 
 	"github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
@@ -17,25 +17,26 @@ import (
 const maxKeyspaceNameLen = 48
 
 // validateKeyspaceName validates that name is a safe CQL identifier.
-// CQL identifiers allow: letters, underscore, and digits.
+// Only printable ASCII letters, digits, and underscore are allowed to
+// prevent Unicode normalization / homoglyph attacks.
 // ScyllaDB keyspace names are limited to 48 characters.
 // See https://docs.scylladb.com/stable/cql/ddl.html
 func validateKeyspaceName(name string) error {
 	if name == "" {
-		return fmt.Errorf("keyspace name must not be empty")
+		return errors.New("keyspace name must not be empty")
 	}
 	if len(name) > maxKeyspaceNameLen {
-		return fmt.Errorf("keyspace name %q exceeds max length of %d characters", name, maxKeyspaceNameLen)
+		return errors.Errorf("keyspace name %q exceeds max length of %d characters", name, maxKeyspaceNameLen)
 	}
 
-	r := []rune(name)
-	if r[0] != '_' && !unicode.IsLetter(r[0]) {
-		return fmt.Errorf("invalid keyspace name %q: must start with a letter or underscore", name)
-	}
-
-	for _, c := range r {
-		if c != '_' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
-			return fmt.Errorf("invalid keyspace name %q: character %q is not allowed", name, c)
+	for _, c := range name {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '_':
+		default:
+			return errors.Errorf("invalid keyspace name %q: character %q is not allowed", name, c)
 		}
 	}
 
