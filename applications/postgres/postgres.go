@@ -97,8 +97,28 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 		return nil, err
 	}
 
-	// NB: give it some time to assign a port
-	time.Sleep(1 * time.Second)
+	hp, err := c.URL(docker.ProtoTCP, 5432)
+	if err != nil {
+		return nil, err
+	}
+
+	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", hp.String(), "postgres")
+
+	// Wait for PostgreSQL to accept TCP connections with a retry loop
+	// instead of a blind sleep, so startup is fast on fast hosts and
+	// resilient on loaded ones.
+	for i := 0; i < 30; i++ {
+		pgconn, pgErr := pgx.Connect(ctx, dsn)
+		if pgErr == nil {
+			_ = pgconn.Close(ctx)
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
+	}
 
 	started = true
 	return &postgresql{
