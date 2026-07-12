@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -70,7 +71,11 @@ func (g *group) Close(ctx context.Context) error {
 	}
 
 	if len(errs) > 0 {
-		return errs[0]
+		msgs := make([]string, 0, len(errs))
+		for _, e := range errs {
+			msgs = append(msgs, e.Error())
+		}
+		return errors.Errorf("group close errors: [%s]", strings.Join(msgs, "; "))
 	}
 	return nil
 }
