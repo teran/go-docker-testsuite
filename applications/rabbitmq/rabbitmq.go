@@ -138,7 +138,7 @@ func (r *rabbitmq) CreateUser(ctx context.Context, username, password string) er
 
 	body := fmt.Sprintf(`{"password":"%s","tags":"administrator"}`, password)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
-		fmt.Sprintf("%s/api/users/%s", mgmtURL, username),
+		fmt.Sprintf("%s/api/users/%s", mgmtURL, url.PathEscape(username)),
 		strings.NewReader(body))
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func (r *rabbitmq) SetPermissions(ctx context.Context, vhost, username, configur
 		configure, write, read,
 	)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
-		fmt.Sprintf("%s/api/permissions/%s/%s", mgmtURL, url.PathEscape(vhost), username),
+		fmt.Sprintf("%s/api/permissions/%s/%s", mgmtURL, url.PathEscape(vhost), url.PathEscape(username)),
 		strings.NewReader(body))
 	if err != nil {
 		return err
