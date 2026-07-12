@@ -252,11 +252,8 @@ func (s *k3sTestSuite) TestLoadBalancerService() {
 	// On Docker Desktop for macOS, bridge IPs are not directly reachable
 	// from the host. Instead, we verify by curling the service from inside
 	// the k3s container using Docker exec.
-	containerID, err := findContainerIDByName(s.ctx, s.dockerCli, containerName)
-	r.NoError(err)
-
 	svcURL := fmt.Sprintf("http://%s:%d/", lbIngressHost, echoPort)
-	output, err := execInContainer(s.ctx, s.dockerCli, containerID,
+	output, err := execInContainer(s.ctx, s.dockerCli, s.app.ID(),
 		"wget", "-qO-", "--timeout=10", svcURL)
 	r.NoError(err, "should be able to reach the service from inside the container")
 
