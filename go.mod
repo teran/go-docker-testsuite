@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/vault-client-go v0.4.3
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/minio/minio-go/v7 v7.2.1
+	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/pkg/errors v0.9.1
 	github.com/rabbitmq/amqp091-go v1.13.0
 	github.com/sirupsen/logrus v1.9.4

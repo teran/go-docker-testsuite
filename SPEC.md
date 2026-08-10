@@ -47,6 +47,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO (S3) | `github.com/minio/minio-go/v7` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
+| `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v4` |
 | `applications/redis` | Redis | `github.com/go-redis/redis/v8` |
 | `applications/scylladb` | ScyllaDB (CQL) | `github.com/gocql/gocql` |

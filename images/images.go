@@ -24,4 +24,7 @@ const (
 
 	// K3s image tag
 	K3s = "index.docker.io/rancher/k3s:v1.36.2-k3s1"
+
+	// OpenSearch image tag
+	OpenSearch = "index.docker.io/opensearchproject/opensearch:2.19.6"
 )

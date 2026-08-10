@@ -48,17 +48,18 @@ The test suite provides ready-to-use wrappers (each returns a typed
 client interface and handles startup, health checks, and cleanup).
 Here's the full list:
 
-| Application                                                | Package                                            | Description                      |
-| ---------------------------------------------------------- | -------------------------------------------------- | -------------------------------- |
-| [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)       | Apache Kafka with Sarama client  |
-| [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache) | Memcached with gomemcache client |
-| [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)       | S3-compatible object storage     |
-| [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)       | MySQL-compatible databases       |
-| [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres) | PostgreSQL with pgx client       |
-| [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)       | Redis with go-redis client       |
-| [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb) | ScyllaDB with gocql client       |
-| [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)       | HashiCorp Vault                  |
-| —                                                          | `applications/*/versions/`                         | Per-version integration tests    |
+| Application                                                | Package                                                | Description                          |
+|------------------------------------------------------------|--------------------------------------------------------|--------------------------------------|
+| [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)           | Apache Kafka with Sarama client      |
+| [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |
+| [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
+| [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)           | MySQL-compatible databases           |
+| [OpenSearch](https://opensearch.org/)                      | [`applications/opensearch`](./applications/opensearch) | OpenSearch with opensearch-go client |
+| [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres)     | PostgreSQL with pgx client           |
+| [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)           | Redis with go-redis client           |
+| [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb)     | ScyllaDB with gocql client           |
+| [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)           | HashiCorp Vault                      |
+| —                                                          | `applications/*/versions/`                             | Per-version integration tests        |
 
 Many application packages include [testable Examples](https://go.dev/blog/examples)
 (`Example*` functions in `*_test.go` files) that demonstrate real
