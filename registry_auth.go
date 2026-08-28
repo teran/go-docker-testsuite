@@ -58,7 +58,6 @@ func toRegistryAuthConfig(ac types.AuthConfig) registry.AuthConfig {
 		Username:      ac.Username,
 		Password:      ac.Password,
 		Auth:          ac.Auth,
-		Email:         ac.Email,
 		ServerAddress: ac.ServerAddress,
 		IdentityToken: ac.IdentityToken,
 		RegistryToken: ac.RegistryToken,
