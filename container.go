@@ -309,7 +309,9 @@ func (c *container) pullImage(ctx context.Context) error {
 	}
 
 	if isLatest || err == errImageIsNotPulled {
-		rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{})
+		rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{
+			RegistryAuth: registryAuthForImage(c.image),
+		})
 		if err != nil {
 			return errors.Wrap(err, "error pulling image")
 		}
