@@ -6,7 +6,7 @@ require (
 	github.com/IBM/sarama v1.60.1
 	github.com/bradfitz/gomemcache v0.0.0-20260422231931-4d751bb6e37c
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.5.2+incompatible
+	github.com/docker/cli v29.2.0+incompatible
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.8.1
 	github.com/go-redis/redis/v8 v8.11.5
