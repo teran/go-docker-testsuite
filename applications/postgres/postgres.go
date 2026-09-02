@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	pgx "github.com/jackc/pgx/v4"
+	pgx "github.com/jackc/pgx/v5"
 
 	"github.com/pkg/errors"
 	"github.com/teran/go-docker-testsuite"
