@@ -22,7 +22,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/teran/echo-grpc-server v0.0.4
 	golang.org/x/sync v0.22.0
-	google.golang.org/grpc v1.83.0
+	google.golang.org/grpc v1.83.2
 	k8s.io/api v0.37.0
 	k8s.io/apimachinery v0.37.0
 	k8s.io/client-go v0.37.0
