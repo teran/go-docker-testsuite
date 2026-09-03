@@ -27,4 +27,9 @@ const (
 
 	// OpenSearch image tag
 	OpenSearch = "index.docker.io/opensearchproject/opensearch:2.19.6"
+
+	// Ceph (RGW demo) image tag, published multi-arch (amd64+arm64) from
+	// github.com/teran/ceph-container. Images are tagged v<version> for the
+	// squid and tentacle release trains.
+	Ceph = "ghcr.io/teran/ceph-container/ceph:v20.2.4"
 )
