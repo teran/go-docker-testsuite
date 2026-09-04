@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/distribution/reference"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -347,15 +348,33 @@ func (c *container) isImagePulled(ctx context.Context) error {
 		return err
 	}
 
+	// Compare normalized (familiar) image references instead of doing an
+	// exact string match. Docker stores RepoTags in a canonical/short form
+	// (e.g. "memcached:1.6.29" for "index.docker.io/library/memcached:1.6.29"),
+	// so a raw string comparison would spuriously report the image as not
+	// pulled and trigger a redundant pull on every Run().
+	want := familiarImageRef(c.image)
+
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
-			if tag == c.image {
+			if familiarImageRef(tag) == want {
 				return nil
 			}
 		}
 	}
 
 	return errImageIsNotPulled
+}
+
+// familiarImageRef normalizes an image reference to its familiar (short)
+// form, falling back to the raw string when it cannot be parsed (e.g.
+// "<none>:<none>").
+func familiarImageRef(ref string) string {
+	named, err := reference.ParseNormalizedNamed(ref)
+	if err != nil {
+		return ref
+	}
+	return reference.FamiliarString(named)
 }
 
 // URL returns host & port pair to allow external connections
