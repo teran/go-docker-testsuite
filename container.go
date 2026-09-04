@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/distribution/reference"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -315,30 +316,67 @@ func (c *container) Close(ctx context.Context) error {
 }
 
 func (c *container) pullImage(ctx context.Context) error {
-	isLatest := strings.HasSuffix(c.image, ":latest")
-
-	err := c.isImagePulled(ctx)
-	if err != nil && err != errImageIsNotPulled {
-		return err
+	if c.isUpToDate(ctx) {
+		return nil
 	}
 
-	if isLatest || err == errImageIsNotPulled {
-		rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{
-			RegistryAuth: registryAuthForImage(c.image),
-		})
-		if err != nil {
-			return errors.Wrap(err, "error pulling image")
-		}
-		defer func() { _ = rc.Close() }()
+	rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{
+		RegistryAuth: registryAuthForImage(c.image),
+	})
+	if err != nil {
+		return errors.Wrap(err, "error pulling image")
+	}
+	defer func() { _ = rc.Close() }()
 
-		// Drain the pull response to wait for the pull to complete.
-		_, err = io.Copy(io.Discard, rc)
-		if err != nil {
-			return errors.Wrap(err, "error waiting for image pull to complete")
-		}
+	// Drain the pull response to wait for the pull to complete.
+	_, err = io.Copy(io.Discard, rc)
+	if err != nil {
+		return errors.Wrap(err, "error waiting for image pull to complete")
 	}
 
 	return nil
+}
+
+// isUpToDate reports whether the image does not need to be pulled.
+//
+// For non-":latest" images this means it is already present locally (see
+// isImagePulled). For ":latest" images it is a best-effort comparison between
+// the local manifest digest and the remote one; when the remote digest cannot
+// be determined (registry unreachable, auth missing, no digest header) we
+// conservatively report "not up to date" so the caller pulls as before.
+func (c *container) isUpToDate(ctx context.Context) bool {
+	if !strings.HasSuffix(c.image, ":latest") {
+		return c.isImagePulled(ctx) == nil
+	}
+
+	local := localRepoDigest(ctx, c.cli, c.image)
+	if local == "" {
+		return false
+	}
+
+	remote, err := c.remoteManifestDigest(ctx)
+	if err != nil {
+		log.WithError(err).Tracef("could not determine remote digest for %s; falling back to pull", c.image)
+		return false
+	}
+
+	if remote == "" {
+		return false
+	}
+
+	if remote != local {
+		log.WithFields(log.Fields{
+			"image":  c.image,
+			"local":  local,
+			"remote": remote,
+		}).Trace("image digest differs from remote; pulling")
+		return false
+	}
+
+	log.WithFields(log.Fields{
+		"image": c.image,
+	}).Trace("image is up to date; skipping pull")
+	return true
 }
 
 func (c *container) isImagePulled(ctx context.Context) error {
@@ -347,15 +385,33 @@ func (c *container) isImagePulled(ctx context.Context) error {
 		return err
 	}
 
+	// Compare normalized (familiar) image references instead of doing an
+	// exact string match. Docker stores RepoTags in a canonical/short form
+	// (e.g. "memcached:1.6.29" for "index.docker.io/library/memcached:1.6.29"),
+	// so a raw string comparison would spuriously report the image as not
+	// pulled and trigger a redundant pull on every Run().
+	want := familiarImageRef(c.image)
+
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
-			if tag == c.image {
+			if familiarImageRef(tag) == want {
 				return nil
 			}
 		}
 	}
 
 	return errImageIsNotPulled
+}
+
+// familiarImageRef normalizes an image reference to its familiar (short)
+// form, falling back to the raw string when it cannot be parsed (e.g.
+// "<none>:<none>").
+func familiarImageRef(ref string) string {
+	named, err := reference.ParseNormalizedNamed(ref)
+	if err != nil {
+		return ref
+	}
+	return reference.FamiliarString(named)
 }
 
 // URL returns host & port pair to allow external connections
