@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/teran/go-docker-testsuite/images"
@@ -43,24 +44,25 @@ func TestCeph(t *testing.T) {
 	r.Equal(DefaultAccessKey, app.AccessKey())
 	r.Equal(DefaultSecretKey, app.SecretKey())
 
-	err = cli.MakeBucket(ctx, testBucketName, minio.MakeBucketOptions{})
+	_, err = cli.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String(testBucketName)})
 	r.NoError(err)
 
 	testPayload := "test data"
-	_, err = cli.PutObject(
-		ctx,
-		testBucketName,
-		"some_key",
-		strings.NewReader(testPayload),
-		int64(len(testPayload)),
-		minio.PutObjectOptions{},
-	)
+	_, err = cli.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(testBucketName),
+		Key:    aws.String("some_key"),
+		Body:   strings.NewReader(testPayload),
+	})
 	r.NoError(err)
 
-	obj, err := cli.GetObject(ctx, testBucketName, "some_key", minio.GetObjectOptions{})
+	obj, err := cli.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(testBucketName),
+		Key:    aws.String("some_key"),
+	})
 	r.NoError(err)
+	defer func() { _ = obj.Body.Close() }()
 
-	resp, err := io.ReadAll(obj)
+	resp, err := io.ReadAll(obj.Body)
 	r.NoError(err)
 	r.Equal(testPayload, string(resp))
 }

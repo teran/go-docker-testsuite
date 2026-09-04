@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go/v7"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/teran/go-docker-testsuite/applications/ceph"
 )
 
 // This example demonstrates starting a Ceph RGW container, creating a bucket,
-// and uploading/downloading an object using the S3 (minio-go) client.
+// and uploading/downloading an object using the AWS SDK v2 S3 client.
 func Example() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -38,30 +39,34 @@ func Example() {
 		return
 	}
 
-	if err := cli.MakeBucket(ctx, "example", minio.MakeBucketOptions{}); err != nil {
+	if _, err := cli.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String("example")}); err != nil {
 		fmt.Printf("error creating bucket: %v\n", err)
 		return
 	}
 	fmt.Println("bucket created")
 
 	payload := "Hello, Ceph!"
-	_, err = cli.PutObject(ctx, "example", "hello.txt",
-		strings.NewReader(payload), int64(len(payload)),
-		minio.PutObjectOptions{ContentType: "text/plain"},
-	)
+	_, err = cli.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: aws.String("example"),
+		Key:    aws.String("hello.txt"),
+		Body:   strings.NewReader(payload),
+	})
 	if err != nil {
 		fmt.Printf("error uploading: %v\n", err)
 		return
 	}
 	fmt.Println("object uploaded")
 
-	obj, err := cli.GetObject(ctx, "example", "hello.txt", minio.GetObjectOptions{})
+	obj, err := cli.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String("example"),
+		Key:    aws.String("hello.txt"),
+	})
 	if err != nil {
 		fmt.Printf("error downloading: %v\n", err)
 		return
 	}
-	defer func() { _ = obj.Close() }()
+	defer func() { _ = obj.Body.Close() }()
 
-	data, _ := io.ReadAll(obj)
+	data, _ := io.ReadAll(obj.Body)
 	fmt.Printf("object content: %s\n", string(data))
 }

@@ -5,7 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/minio/minio-go/v7"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/teran/go-docker-testsuite/applications/ceph"
@@ -39,21 +40,25 @@ func (s *testSuite) TestAll() {
 	s.Require().NotNil(cli)
 
 	const bucket = "versioned-bucket"
-	err = cli.MakeBucket(s.ctx, bucket, minio.MakeBucketOptions{})
+	_, err = cli.CreateBucket(s.ctx, &s3.CreateBucketInput{Bucket: aws.String(bucket)})
 	s.Require().NoError(err)
 
 	payload := "ceph version test"
-	_, err = cli.PutObject(
-		s.ctx, bucket, "key",
-		strings.NewReader(payload), int64(len(payload)),
-		minio.PutObjectOptions{},
-	)
+	_, err = cli.PutObject(s.ctx, &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String("key"),
+		Body:   strings.NewReader(payload),
+	})
 	s.Require().NoError(err)
 
-	obj, err := cli.GetObject(s.ctx, bucket, "key", minio.GetObjectOptions{})
+	obj, err := cli.GetObject(s.ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String("key"),
+	})
 	s.Require().NoError(err)
+	defer func() { _ = obj.Body.Close() }()
 
-	data, err := io.ReadAll(obj)
+	data, err := io.ReadAll(obj.Body)
 	s.Require().NoError(err)
 	s.Require().Equal(payload, string(data))
 }

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
@@ -32,8 +33,8 @@ type Ceph interface {
 	Endpoint() (string, error)
 	AccessKey() string
 	SecretKey() string
-	// Client returns an S3 client (minio-go) configured for the RGW.
-	Client() (*minio.Client, error)
+	// Client returns an S3 client (AWS SDK v2) configured for the RGW.
+	Client() (*s3.Client, error)
 }
 
 type ceph struct {
@@ -118,19 +119,21 @@ func (c *ceph) SecretKey() string {
 	return c.secretKey
 }
 
-func (c *ceph) Client() (*minio.Client, error) {
+func (c *ceph) Client() (*s3.Client, error) {
 	endpoint, err := c.Endpoint()
 	if err != nil {
 		return nil, err
 	}
 
-	cli, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(c.accessKey, c.secretKey, ""),
-		Secure: false,
+	cli := s3.New(s3.Options{
+		Region:       "us-east-1",
+		BaseEndpoint: aws.String("http://" + endpoint),
+		Credentials: aws.NewCredentialsCache(
+			credentials.NewStaticCredentialsProvider(c.accessKey, c.secretKey, ""),
+		),
+		// RGW uses path-style addressing (no virtual-hosted buckets).
+		UsePathStyle: true,
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	return cli, nil
 }
