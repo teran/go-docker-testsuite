@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -51,6 +52,19 @@ func WithTmpfs(m map[string]string) ContainerOption {
 func WithBinds(binds ...string) ContainerOption {
 	return func(hc *dockerContainer.HostConfig) {
 		hc.Binds = binds
+	}
+}
+
+// WithUlimit sets an ulimit (e.g. nofile) on the container's HostConfig.
+// Some images (e.g. Ceph) start much slower under Docker's default limits,
+// so callers can raise the soft/hard limit.
+func WithUlimit(name string, soft, hard int64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.Ulimits = append(hc.Ulimits, &units.Ulimit{
+			Name: name,
+			Soft: soft,
+			Hard: hard,
+		})
 	}
 }
 
