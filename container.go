@@ -316,30 +316,67 @@ func (c *container) Close(ctx context.Context) error {
 }
 
 func (c *container) pullImage(ctx context.Context) error {
-	isLatest := strings.HasSuffix(c.image, ":latest")
-
-	err := c.isImagePulled(ctx)
-	if err != nil && err != errImageIsNotPulled {
-		return err
+	if c.isUpToDate(ctx) {
+		return nil
 	}
 
-	if isLatest || err == errImageIsNotPulled {
-		rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{
-			RegistryAuth: registryAuthForImage(c.image),
-		})
-		if err != nil {
-			return errors.Wrap(err, "error pulling image")
-		}
-		defer func() { _ = rc.Close() }()
+	rc, err := c.cli.ImagePull(ctx, c.image, image.PullOptions{
+		RegistryAuth: registryAuthForImage(c.image),
+	})
+	if err != nil {
+		return errors.Wrap(err, "error pulling image")
+	}
+	defer func() { _ = rc.Close() }()
 
-		// Drain the pull response to wait for the pull to complete.
-		_, err = io.Copy(io.Discard, rc)
-		if err != nil {
-			return errors.Wrap(err, "error waiting for image pull to complete")
-		}
+	// Drain the pull response to wait for the pull to complete.
+	_, err = io.Copy(io.Discard, rc)
+	if err != nil {
+		return errors.Wrap(err, "error waiting for image pull to complete")
 	}
 
 	return nil
+}
+
+// isUpToDate reports whether the image does not need to be pulled.
+//
+// For non-":latest" images this means it is already present locally (see
+// isImagePulled). For ":latest" images it is a best-effort comparison between
+// the local manifest digest and the remote one; when the remote digest cannot
+// be determined (registry unreachable, auth missing, no digest header) we
+// conservatively report "not up to date" so the caller pulls as before.
+func (c *container) isUpToDate(ctx context.Context) bool {
+	if !strings.HasSuffix(c.image, ":latest") {
+		return c.isImagePulled(ctx) == nil
+	}
+
+	local := localRepoDigest(ctx, c.cli, c.image)
+	if local == "" {
+		return false
+	}
+
+	remote, err := c.remoteManifestDigest(ctx)
+	if err != nil {
+		log.WithError(err).Tracef("could not determine remote digest for %s; falling back to pull", c.image)
+		return false
+	}
+
+	if remote == "" {
+		return false
+	}
+
+	if remote != local {
+		log.WithFields(log.Fields{
+			"image":  c.image,
+			"local":  local,
+			"remote": remote,
+		}).Trace("image digest differs from remote; pulling")
+		return false
+	}
+
+	log.WithFields(log.Fields{
+		"image": c.image,
+	}).Trace("image is up to date; skipping pull")
+	return true
 }
 
 func (c *container) isImagePulled(ctx context.Context) error {
