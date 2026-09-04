@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/pkg/errors"
 
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
@@ -95,12 +96,21 @@ func NewWithImage(ctx context.Context, image string) (Ceph, error) {
 		return nil, err
 	}
 
-	started = true
-	return &ceph{
+	app := &ceph{
 		c:         c,
 		accessKey: DefaultAccessKey,
 		secretKey: DefaultSecretKey,
-	}, nil
+	}
+
+	// Give the caller a RGW that already accepts signed requests, guarding
+	// against the readiness race right after the demo user is created and
+	// against transient clock skew between the host and the container.
+	if err := app.waitReady(ctx); err != nil {
+		return nil, err
+	}
+
+	started = true
+	return app, nil
 }
 
 func (c *ceph) Endpoint() (string, error) {
@@ -136,6 +146,34 @@ func (c *ceph) Client() (*s3.Client, error) {
 	})
 
 	return cli, nil
+}
+
+// waitReady performs an authenticated S3 probe (ListBuckets) with retries so
+// the RGW is confirmed to accept signed requests before the app is handed
+// out. This guards against two intermittent failure modes that surface as a
+// 403 on the first request:
+//
+//   - the readiness race right after the demo user is created (RGW has not
+//     registered the user in its auth cache yet);
+//   - transient clock skew between the host and the container (SigV4).
+func (c *ceph) waitReady(ctx context.Context) error {
+	cli, err := c.Client()
+	if err != nil {
+		return err
+	}
+
+	for {
+		_, err := cli.ListBuckets(ctx, &s3.ListBucketsInput{})
+		if err == nil {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "error waiting for RGW to accept signed requests")
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 func (c *ceph) Close(ctx context.Context) error {
