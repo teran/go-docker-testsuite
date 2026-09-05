@@ -50,6 +50,7 @@ Here's the full list:
 
 | Application                                                | Package                                                | Description                          |
 |------------------------------------------------------------|--------------------------------------------------------|--------------------------------------|
+| [Ceph (RGW)](https://ceph.io/)                             | [`applications/ceph`](./applications/ceph)             | Ceph RGW (S3) with AWS SDK v2 client |
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)           | Apache Kafka with Sarama client      |
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |
 | [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
@@ -60,6 +61,14 @@ Here's the full list:
 | [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb)     | ScyllaDB with gocql client           |
 | [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)           | HashiCorp Vault                      |
 | —                                                          | `applications/*/versions/`                             | Per-version integration tests        |
+
+> **Ceph image:** the Ceph wrapper runs the multi-arch demo image
+> `ghcr.io/teran/ceph-container/ceph:v<version>` (built for the squid and
+> tentacle release trains). It is built and published independently from
+> [github.com/teran/ceph-container](https://github.com/teran/ceph-container).
+> Use a specific version (e.g. `ceph.NewWithImage(ctx,
+> "ghcr.io/teran/ceph-container/ceph:v20.2.4")`) when the default
+> (`images.Ceph`) isn't the one you need.
 
 Many application packages include [testable Examples](https://go.dev/blog/examples)
 (`Example*` functions in `*_test.go` files) that demonstrate real
