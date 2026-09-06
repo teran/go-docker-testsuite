@@ -10,7 +10,7 @@ import (
 	"github.com/teran/go-docker-testsuite/applications/postgres/versions"
 )
 
-const image = "index.docker.io/library/postgres:15.14"
+const image = "index.docker.io/library/postgres:15.19"
 
 func TestPostgreSQLVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
