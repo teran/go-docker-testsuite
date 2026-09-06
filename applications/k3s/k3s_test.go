@@ -110,6 +110,8 @@ func (s *k3sTestSuite) TestKubeconfigPath() {
 	r.Greater(info.Size(), int64(0))
 
 	// Read and verify it is valid YAML
+	// #nosec G304 -- the path is a kubeconfig produced by the k3s app under
+	// test; reading it here is the point of the test, not a file-inclusion risk.
 	data, err := os.ReadFile(kubeconfigPath)
 	r.NoError(err)
 

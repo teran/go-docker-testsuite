@@ -1,0 +1,8 @@
+# golangci-lint configuration (v2 format)
+# https://golangci-lint.run/
+version: "2"
+
+linters:
+  # Add gosec (Go security checker) on top of the standard linter set.
+  enable:
+    - gosec

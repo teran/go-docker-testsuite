@@ -25,6 +25,8 @@ type rabbitMQAppTestSuite struct {
 }
 
 func (s *rabbitMQAppTestSuite) SetupTest() {
+	// #nosec G118 -- the cancel func is stored on the suite and invoked in
+	// TearDownTest (gosec cannot trace field-based cancellation).
 	s.ctx, s.cancel = context.WithTimeout(s.T().Context(), 2*time.Minute)
 
 	var err error
@@ -33,6 +35,7 @@ func (s *rabbitMQAppTestSuite) SetupTest() {
 }
 
 func (s *rabbitMQAppTestSuite) TearDownTest() {
+	s.cancel()
 	s.Require().NoError(s.app.Close(s.T().Context()))
 }
 

@@ -137,6 +137,8 @@ func (r *rabbitmq) CreateUser(ctx context.Context, username, password string) er
 		return err
 	}
 
+	// #nosec G117 -- the password is intentionally marshaled and sent to the
+	// RabbitMQ management API to create the user; it is never logged here.
 	body, err := json.Marshal(struct {
 		Password string `json:"password"`
 		Tags     string `json:"tags"`

@@ -42,6 +42,25 @@ jobs:
           only-new-issues: false
           working-directory: .
 
+  govulncheck:
+    runs-on: ubuntu-latest
+    # Currently non-blocking: govulncheck reports 2 known vulnerabilities in
+    # github.com/docker/docker SDK (GO-2026-4883, GO-2026-4887) for which no
+    # fixed SDK version is released yet (Fixed in: N/A). The scan still runs on
+    # every change so NEW vulnerabilities that DO have a fix fail loudly.
+    # Switch to a hard gate once the Docker SDK ships a patched version.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Install dependencies
+        run: go mod download
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   discover:
     runs-on: ubuntu-latest
     outputs:
