@@ -293,7 +293,15 @@ func (c *container) Close(ctx context.Context) error {
 	timeout := defaultStopTimeout
 	if dl, ok := ctx.Deadline(); ok {
 		if remaining := time.Until(dl); remaining > 0 {
-			timeout = remaining
+			// Cap the graceful-stop window at defaultStopTimeout instead of
+			// inheriting the whole remaining context. Otherwise a slow-to-stop
+			// container (e.g. an old OpenSearch) makes Docker wait out the
+			// caller's context on the stop call and the cleanup itself fails
+			// with a context deadline exceeded. Docker force-kills the
+			// container once `timeout` elapses, so the stop stays bounded.
+			if remaining < timeout {
+				timeout = remaining
+			}
 		}
 	}
 
