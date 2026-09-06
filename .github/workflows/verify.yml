@@ -79,7 +79,7 @@ jobs:
         env:
           IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
         run: |
-          go test -v -race -timeout=${{ matrix.timeout_minutes }}m ${{ matrix.packages }}
+          go test -v -race -p 1 -timeout=${{ matrix.timeout_minutes }}m ${{ matrix.packages }}
 
   build:
     runs-on: ubuntu-latest
