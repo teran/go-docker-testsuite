@@ -44,12 +44,6 @@ jobs:
 
   govulncheck:
     runs-on: ubuntu-latest
-    # Currently non-blocking: govulncheck reports 2 known vulnerabilities in
-    # github.com/docker/docker SDK (GO-2026-4883, GO-2026-4887) for which no
-    # fixed SDK version is released yet (Fixed in: N/A). The scan still runs on
-    # every change so NEW vulnerabilities that DO have a fix fail loudly.
-    # Switch to a hard gate once the Docker SDK ships a patched version.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -59,7 +53,34 @@ jobs:
       - name: Install dependencies
         run: go mod download
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > govulncheck.json
+          # Fail only on vulnerabilities that actually have a fix available.
+          # Findings with "Fixed in: N/A" (no patched version for the affected
+          # module yet, e.g. current github.com/docker/docker SDK) are reported
+          # for visibility but skipped, so they don't redden CI without a remedy.
+          if [ ! -s govulncheck.json ] || ! jq -s '.' govulncheck.json >/dev/null 2>&1; then
+            echo "govulncheck: unexpected error (no valid JSON output)"
+            exit 1
+          fi
+          FIXABLE=$(jq -s '
+            [ .[] | select(.osv != null).osv ] as $osvs |
+            [ .[] | select(.finding != null) ] as $findings |
+            [ $findings[] |
+              select(
+                .finding as $f |
+                ($osvs[] | select(.id == $f.osv)) as $osv |
+                ([ $osv.affected[]? | select(.package.name == $f.trace[0].module) ] as $aff |
+                  any($aff[]?.ranges[]?.events[]?; (.fixed // "") != "")
+                )
+              )
+            ] | length
+          ' govulncheck.json)
+          echo "govulncheck: ${FIXABLE} fixable vulnerability(ies); findings with no fix (Fixed in: N/A) are skipped"
+          if [ "${FIXABLE:-0}" -gt 0 ]; then
+            echo "Fixable vulnerabilities found - run 'govulncheck ./...' for details."
+            exit 1
+          fi
 
   discover:
     runs-on: ubuntu-latest
