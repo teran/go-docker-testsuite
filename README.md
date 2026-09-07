@@ -83,6 +83,28 @@ go test -run Example ./applications/... .
 go test -run "^Example$" ./applications/mysql/
 ```
 
+## Tested versions
+
+Each application wrapper is exercised against the exact container image
+versions listed below via per-version integration tests in
+`applications/<app>/versions/`. Applications without a `versions/`
+directory are validated against their default image only.
+
+| Application                           | Tested versions                                                                       |
+|---------------------------------------|---------------------------------------------------------------------------------------|
+| [Ceph (RGW)](https://ceph.io/)        | 19.2.0, 19.2.1, 19.2.2, 19.2.3, 19.2.4, 19.2.5, 19.2.6, 20.2.0, 20.2.1, 20.2.2, 20.2.3, 20.2.4 |
+| [Kafka](https://kafka.apache.org/)    | 4.1.2, 4.2.1, 4.3.1                                                                   |
+| [K3s](https://k3s.io/)                | v1.31.14, v1.32.13, v1.33.13, v1.34.9, v1.35.6, v1.36.2                               |
+| [MySQL / MariaDB / Percona](https://www.mysql.com/) | MariaDB: 11.4.2, 12.0.2 · MySQL: 8.0.4, 9.5.0 · Percona: 8.0.36-28   |
+| [OpenSearch](https://opensearch.org/) | 2.12.0, 2.17.1, 2.19.6                                                                |
+| [PostgreSQL](https://www.postgresql.org/) | 10.21, 11.16, 12.22, 13.23, 14.24, 15.19, 16.15, 17.11, 18.6                       |
+| [RabbitMQ](https://www.rabbitmq.com/) | 3.13, 4.0                                                                            |
+| [Redis](https://redis.io/)            | 6.2.14, 7.0.15, 7.2.5                                                                 |
+| [ScyllaDB](https://www.scylladb.com/) | 2025.1.1, 6.0.0, 6.1.5, 6.2.3                                                         |
+| [Memcache](https://memcached.org/)    | default image only                                                                    |
+| [MinIO](https://min.io/)              | default image only                                                                    |
+| [Vault](https://www.vaultproject.io/) | default image only                                                                    |
+
 ## Usage
 
 ### Quick start — MySQL
