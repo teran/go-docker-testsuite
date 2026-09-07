@@ -28,8 +28,10 @@ or object storage — without mocks.
 
 | Type | Responsibility |
 | ------ | ---------------- |
-| `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name` |
+| `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name`, `ID` |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
+| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`) |
+| `ContainerInfo` | Resolves external port mappings and the Docker host IP |
 | `Application` | Wraps `Container` with lifecycle hooks (`BeforeRun`, `AfterRun`, `BeforeClose`, `AfterClose`) |
 | `Group` | Isolated internal Docker network; runs multiple `Application`s with DNS resolution |
 | `Environment` | Fluent DSL for typed env vars (`StringVar`, `IntVar`, `BoolVar`, etc.) |
@@ -42,21 +44,26 @@ Each sub-package wraps a specific service and returns a typed client:
 
 | Package | Service | Client library |
 | --------- | --------- | ---------------- |
+| `applications/ceph` | Ceph RGW (S3) | `github.com/aws/aws-sdk-go-v2/service/s3` |
 | `applications/k3s` | K3s (Kubernetes) | `k8s.io/client-go` |
 | `applications/kafka` | Apache Kafka | `github.com/IBM/sarama` |
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO (S3) | `github.com/minio/minio-go/v7` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
-| `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v4` |
+| `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |
+| `applications/rabbitmq` | RabbitMQ | standard library (`net/http`, `encoding/json`) |
 | `applications/redis` | Redis | `github.com/go-redis/redis/v8` |
 | `applications/scylladb` | ScyllaDB (CQL) | `github.com/gocql/gocql` |
 | `applications/vault` | HashiCorp Vault | `github.com/hashicorp/vault-client-go` |
 
-Every application package follows the same contract:
+Every application package returns a typed client interface and exposes a
+`Close(ctx context.Context) error` method. The rest of the surface differs by
+service — there is **no single shared `App` interface**. Database wrappers
+share a common DDL contract:
 
 ```go
-type App interface {
+type DB interface {
     Close(ctx context.Context) error
     MustDSN(db string) string
     DSN(db string) (string, error)
@@ -64,27 +71,36 @@ type App interface {
 }
 ```
 
+Other wrappers expose service-specific accessors instead (e.g. redis `Addr`,
+rabbitmq `GetAMQPURL`/`GetManagementURL`, ceph `Endpoint`/`Client`,
+k3s `Clientset`/`KubeconfigPath`).
+
 ### Image resolution
 
 - `IMAGE_PREFIX` env var prepends a registry mirror to all image references.
 - Images with a tag other than `:latest` are cached locally and only pulled
-  if missing; `:latest` is always re-pulled.
+  if missing.
+- `:latest` images are compared against the remote registry by manifest
+  digest and re-pulled only when the digests differ (best-effort: if the
+  remote digest cannot be determined, the image is pulled as before).
 
 ### Hooks lifecycle
 
-```text
-Container.Run:
-  1. Pull image
-  2. Create container
-  3. Attach to network (if Group)
-  4. Hook: BeforeRun
-  5. ContainerStart
-  6. Hook: AfterRun
+Hooks are orchestrated by `Group` (and carried by `Application`) around
+`container.Run` / `container.Close`. The low-level `container` itself does
+**not** invoke hooks.
 
-Container.Close:
+```text
+Group.Run (per application):
+  1. Hook: BeforeRun
+  2. Container.Run (pull image → create → attach to network → start)
+  3. Hook: AfterRun
+
+Group.Close (per application, in reverse order):
   1. Hook: BeforeClose
-  2. ContainerStop (+ ContainerRemove)
+  2. Container.Close (stop → remove)
   3. Hook: AfterClose
+  4. Remove the internal network
 ```
 
 ## Dependencies
@@ -106,10 +122,12 @@ Container.Close:
 
 - **markdownlint** — all `.md` files must conform to `.markdownlint.json` rules.
 - **golangci-lint** — mandatory before every commit.
-- **Tests** — automatically discovered and split into parallel CI groups by
-  `scripts/split-test-groups.py`. A dedicated `discover` job runs the script
-  and feeds a dynamic matrix to the `tests` job. New test packages are picked
-  up automatically without editing workflow files.
+- **govulncheck** — fails CI only on fixable vulnerabilities; findings with no
+  available fix are reported for visibility but do not redden CI.
+- **Tests** — automatically discovered and split into parallel CI groups by a
+  Go program (`go run ./tools/cmd/split_test_groups`). A dedicated `discover`
+  job runs it and feeds a dynamic matrix to the `tests` job. New test packages
+  are picked up automatically without editing workflow files.
 - **Integration tests** — require a running Docker daemon; run on CI runners
   (`ubuntu-latest`) with full container orchestration.
 

@@ -51,12 +51,14 @@ Here's the full list:
 | Application                                                | Package                                                | Description                          |
 |------------------------------------------------------------|--------------------------------------------------------|--------------------------------------|
 | [Ceph (RGW)](https://ceph.io/)                             | [`applications/ceph`](./applications/ceph)             | Ceph RGW (S3) with AWS SDK v2 client |
+| [K3s](https://k3s.io/)                                     | [`applications/k3s`](./applications/k3s)               | K3s (Kubernetes) with client-go      |
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)           | Apache Kafka with Sarama client      |
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |
 | [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
 | [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)           | MySQL-compatible databases           |
 | [OpenSearch](https://opensearch.org/)                      | [`applications/opensearch`](./applications/opensearch) | OpenSearch with opensearch-go client |
 | [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres)     | PostgreSQL with pgx client           |
+| [RabbitMQ](https://www.rabbitmq.com/)                      | [`applications/rabbitmq`](./applications/rabbitmq)     | RabbitMQ (AMQP + Management API)     |
 | [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)           | Redis with go-redis client           |
 | [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb)     | ScyllaDB with gocql client           |
 | [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)           | HashiCorp Vault                      |
