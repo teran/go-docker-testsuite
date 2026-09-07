@@ -61,11 +61,15 @@ other languages cannot be accepted.
 ├── images/images.go        # Well-known image references
 ├── internal/               # Internal helpers (ptr, random)
 ├── applications/           # Typed service wrappers
+│   ├── ceph/
+│   ├── k3s/
 │   ├── kafka/
 │   ├── memcache/
 │   ├── minio/
 │   ├── mysql/
+│   ├── opensearch/
 │   ├── postgres/
+│   ├── rabbitmq/
 │   ├── redis/
 │   ├── scylladb/
 │   └── vault/
