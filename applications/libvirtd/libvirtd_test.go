@@ -2,7 +2,6 @@ package libvirtd
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -57,12 +56,8 @@ func TestLibvirtd(t *testing.T) {
 		r.NoError(app.Close(cleanupCtx))
 	}()
 
-	// SocketPath must be non-empty and point at an existing socket file on the
-	// host (the temp dir bind-mounted into the container at /var/run/libvirt).
-	sock := app.SocketPath()
-	r.NotEmpty(sock)
-	_, err = os.Stat(sock)
-	r.NoError(err)
+	// Addr must be a non-empty host:port for the libvirtd TCP endpoint.
+	r.NotEmpty(app.Addr())
 
 	// The client must be connected and report a non-zero libvirt version. This
 	// does not hard-depend on /dev/kvm: without it QEMU falls back to software

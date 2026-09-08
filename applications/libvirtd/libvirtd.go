@@ -4,18 +4,21 @@
 // volumes, virtual networks, snapshots and more — so tests can drive real
 // virtualization without mocks.
 //
-// By default the container runs in a least-privilege configuration: every
-// capability is dropped and only the minimal set QEMU/libvirtd need is added
-// back, with Docker's default seccomp profile relaxed (seccomp=unconfined) so
-// QEMU can start. /dev/kvm and /dev/net/tun are passed through when they exist
-// on the host (otherwise QEMU falls back to software/TCG emulation). Call
-// WithPrivileged for a full-privilege mode when a workload needs it.
+// The container is configured to listen on a TCP socket (port 16509) so the
+// test connects over TCP. By default it runs in a least-privilege
+// configuration: every capability is dropped and only the minimal set
+// QEMU/libvirtd need is added back, with Docker's default seccomp profile
+// relaxed (seccomp=unconfined) so QEMU can start. /dev/kvm and /dev/net/tun
+// are passed through when they exist on the host (otherwise QEMU falls back to
+// software/TCG emulation). Call WithPrivileged for full-privilege mode.
 package libvirtd
 
 import (
 	"context"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -28,14 +31,15 @@ import (
 )
 
 const (
-	// libvirtSocketDir is the path inside the container where libvirtd
-	// creates its unix control socket.
-	libvirtSocketDir = "/var/run/libvirt"
-	// libvirtSocketName is the name of the system (root) libvirt socket
-	// created inside libvirtSocketDir.
-	libvirtSocketName = "libvirt-sock"
-	// socketPollInterval is how often to poll for the socket file appearing.
-	socketPollInterval = 500 * time.Millisecond
+	// libvirtTCPPort is the port libvirtd listens on for TCP connections.
+	libvirtTCPPort = 16509
+	// libvirtdConfigPath is the path of libvirtd.conf inside the container.
+	libvirtdConfigPath = "/etc/libvirt/libvirtd.conf"
+	// libvirtdConfig is the configuration we inject to enable TCP listening
+	// without authentication (suitable for ephemeral test containers).
+	libvirtdConfig = "listen_tcp = 1\nauth_tcp = \"none\"\n"
+	// pollInterval is how often to poll for readiness.
+	pollInterval = 500 * time.Millisecond
 )
 
 // libvirtCaps is the least-privilege capability set QEMU/libvirtd need for
@@ -85,8 +89,8 @@ type Libvirt interface {
 	// Client returns a connected go-libvirt client exposing the full
 	// libvirt API (domains, storage pools/volumes, networks, snapshots, ...).
 	Client() *libvirt.Libvirt
-	// SocketPath returns the path to the libvirtd unix socket on the host.
-	SocketPath() string
+	// Addr returns the host:port of the libvirtd TCP endpoint.
+	Addr() string
 	// HasKVM reports whether /dev/kvm was present and passed into the
 	// container (i.e. whether KVM acceleration is in use vs software/TCG).
 	HasKVM() bool
@@ -94,11 +98,10 @@ type Libvirt interface {
 }
 
 type libvirtd struct {
-	c        docker.Container
-	sockDir  string
-	sockPath string
-	client   *libvirt.Libvirt
-	hasKVM   bool
+	c      docker.Container
+	addr   string
+	client *libvirt.Libvirt
+	hasKVM bool
 }
 
 // New starts a libvirtd container using the default image.
@@ -108,23 +111,30 @@ func New(ctx context.Context, opts ...Option) (Libvirt, error) {
 
 // NewWithImage starts a libvirtd container using the given image.
 //
-// The container is started in a least-privilege configuration by default
-// (see the package doc). /dev/kvm and /dev/net/tun are passed through only if
-// they exist on the host; when /dev/kvm is absent, QEMU falls back to slower
-// software (TCG) emulation rather than failing.
+// libvirtd is configured to listen on TCP (port 16509) via an injected
+// libvirtd.conf, and the port is exposed to the host. /dev/kvm and
+// /dev/net/tun are passed through only if they exist on the host; when
+// /dev/kvm is absent, QEMU falls back to slower software (TCG) emulation
+// rather than failing.
 func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, error) {
 	o := options{}
 	for _, opt := range opts {
 		opt(&o)
 	}
 
-	sockDir, err := os.MkdirTemp("", "libvirtd-*")
+	cfgDir, err := os.MkdirTemp("", "libvirtd-*")
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating libvirtd socket directory")
+		return nil, errors.Wrap(err, "error creating libvirtd config directory")
+	}
+
+	cfgPath := filepath.Join(cfgDir, "libvirtd.conf")
+	if err := os.WriteFile(cfgPath, []byte(libvirtdConfig), 0o600); err != nil {
+		_ = os.RemoveAll(cfgDir)
+		return nil, errors.Wrap(err, "error writing libvirtd.conf")
 	}
 
 	containerOpts := []docker.ContainerOption{
-		docker.WithBinds(sockDir + ":" + libvirtSocketDir),
+		docker.WithBinds(cfgPath + ":" + libvirtdConfigPath + ":ro"),
 	}
 
 	// Devices are mounted only when they exist on the host. A missing /dev/kvm
@@ -161,11 +171,11 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 		image,
 		nil,
 		docker.NewEnvironment(),
-		docker.NewPortBindings(),
+		docker.NewPortBindings().PortDNAT(docker.ProtoTCP, libvirtTCPPort),
 		containerOpts...,
 	)
 	if err != nil {
-		_ = os.RemoveAll(sockDir)
+		_ = os.RemoveAll(cfgDir)
 		return nil, err
 	}
 
@@ -175,7 +185,7 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			_ = c.Close(cleanupCtx)
-			_ = os.RemoveAll(sockDir)
+			_ = os.RemoveAll(cfgDir)
 		}
 	}()
 
@@ -183,23 +193,27 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 		return nil, err
 	}
 
-	sockPath := filepath.Join(sockDir, libvirtSocketName)
-	if err := waitForSocket(ctx, sockPath); err != nil {
+	hp, err := c.URL(docker.ProtoTCP, libvirtTCPPort)
+	if err != nil {
 		return nil, err
 	}
 
-	client := libvirt.NewWithDialer(dialers.NewLocal(dialers.WithSocket(sockPath)))
+	addr := hp.String()
+	if err := waitForTCP(ctx, addr); err != nil {
+		return nil, err
+	}
+
+	client := libvirt.NewWithDialer(dialers.NewRemote(hp.Host, dialers.UsePort(strconv.Itoa(int(hp.Port)))))
 	if err := client.Connect(); err != nil {
 		return nil, errors.Wrap(err, "error connecting to libvirtd")
 	}
 
 	started = true
 	return &libvirtd{
-		c:        c,
-		sockDir:  sockDir,
-		sockPath: sockPath,
-		client:   client,
-		hasKVM:   hasKVM,
+		c:      c,
+		addr:   addr,
+		client: client,
+		hasKVM: hasKVM,
 	}, nil
 }
 
@@ -216,23 +230,27 @@ func hostDeviceExists(path, image string) bool {
 	return false
 }
 
-// waitForSocket polls until the libvirtd unix socket file exists or ctx is done.
-func waitForSocket(ctx context.Context, path string) error {
+// waitForTCP polls until the libvirtd TCP endpoint accepts connections or
+// ctx is done.
+func waitForTCP(ctx context.Context, addr string) error {
+	d := net.Dialer{}
 	for {
-		if _, err := os.Stat(path); err == nil {
+		conn, err := d.DialContext(ctx, "tcp", addr)
+		if err == nil {
+			_ = conn.Close()
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(socketPollInterval):
+		case <-time.After(pollInterval):
 		}
 	}
 }
 
 func (l *libvirtd) Client() *libvirt.Libvirt { return l.client }
 
-func (l *libvirtd) SocketPath() string { return l.sockPath }
+func (l *libvirtd) Addr() string { return l.addr }
 
 func (l *libvirtd) HasKVM() bool { return l.hasKVM }
 
@@ -243,9 +261,6 @@ func (l *libvirtd) Close(ctx context.Context) error {
 	}
 	if cerr := l.c.Close(ctx); cerr != nil && err == nil {
 		err = cerr
-	}
-	if rerr := os.RemoveAll(l.sockDir); rerr != nil && err == nil {
-		err = rerr
 	}
 	return err
 }

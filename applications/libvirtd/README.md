@@ -6,7 +6,10 @@ manager) for integration testing and returns a connected
 exposes the full libvirt API — virtual machine (domain) lifecycle, storage
 pools and volumes, virtual networks, snapshots, and more.
 
-The client interface provides `Client()`, `SocketPath()`, `HasKVM()`, and
+libvirtd is configured to listen on **TCP** (port 16509), which is exposed to
+the host so the test connects over TCP.
+
+The client interface provides `Client()`, `Addr()`, `HasKVM()`, and
 `Close(ctx)`.
 
 ## Privileges and requirements
