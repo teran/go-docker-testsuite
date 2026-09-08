@@ -69,6 +69,59 @@ func WithUlimit(name string, soft, hard int64) ContainerOption {
 	}
 }
 
+// WithDevices maps host devices into the container (e.g. "/dev/kvm",
+// "/dev/net/tun"). Each entry is "hostPath" or "hostPath:containerPath[:mode]".
+// This is required for workloads that need direct access to host devices,
+// such as KVM/QEMU virtualization (libvirtd) or TUN/TAP networking.
+func WithDevices(devices ...string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		for _, d := range devices {
+			parts := strings.SplitN(d, ":", 3)
+			dd := &dockerContainer.DeviceMapping{
+				PathOnHost:        parts[0],
+				PathInContainer:   parts[0],
+				CgroupPermissions: "rwm",
+			}
+			if len(parts) > 1 && parts[1] != "" {
+				dd.PathInContainer = parts[1]
+			}
+			if len(parts) > 2 && parts[2] != "" {
+				dd.CgroupPermissions = parts[2]
+			}
+			hc.Devices = append(hc.Devices, *dd)
+		}
+	}
+}
+
+// WithCapAdd grants additional Linux capabilities (e.g. "NET_ADMIN",
+// "SYS_NICE") beyond the Docker default set. Values are capability names
+// without the "CAP_" prefix, as accepted by Docker.
+func WithCapAdd(caps ...string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.CapAdd = append(hc.CapAdd, caps...)
+	}
+}
+
+// WithCapDrop removes Linux capabilities from the container's default set
+// for least-privilege hardening. Values are capability names without the
+// "CAP_" prefix. Passing "ALL" drops every capability; combine with
+// WithCapAdd to whitelist only what is needed.
+func WithCapDrop(caps ...string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.CapDrop = append(hc.CapDrop, caps...)
+	}
+}
+
+// WithSecurityOpt sets Docker security options (e.g. "seccomp=unconfined",
+// "apparmor=unconfined"). Needed by workloads such as QEMU/libvirtd whose
+// syscalls may be blocked by Docker's default seccomp profile when running
+// in a least-privilege (non-privileged) configuration.
+func WithSecurityOpt(opts ...string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.SecurityOpt = append(hc.SecurityOpt, opts...)
+	}
+}
+
 // Container exposes interface to control the container runtime
 type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error

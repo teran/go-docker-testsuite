@@ -28,6 +28,13 @@ const (
 	// OpenSearch image tag
 	OpenSearch = "index.docker.io/opensearchproject/opensearch:2.19.6"
 
+	// Libvirtd image tag, built and published from
+	// github.com/teran/libvirtd-container. Runs libvirtd listening on TCP
+	// (16509) without auth for integration testing. Requires /dev/kvm
+	// passthrough for KVM acceleration (falls back to TCG software emulation
+	// without it).
+	Libvirtd = "ghcr.io/teran/libvirtd-container/libvirtd:v0.1.1"
+
 	// Ceph (RGW demo) image tag, published multi-arch (amd64+arm64) from
 	// github.com/teran/ceph-container. Images are tagged v<version> for the
 	// squid and tentacle release trains.
