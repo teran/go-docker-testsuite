@@ -15,7 +15,6 @@ package libvirtd
 
 import (
 	"context"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -199,13 +198,18 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 	}
 
 	addr := hp.String()
-	if err := waitForTCP(ctx, addr); err != nil {
-		return nil, err
-	}
 
-	client := libvirt.NewWithDialer(dialers.NewRemote(hp.Host, dialers.UsePort(strconv.Itoa(int(hp.Port)))))
-	if err := client.Connect(); err != nil {
-		return nil, errors.Wrap(err, "error connecting to libvirtd")
+	// Readiness: the host TCP port (Docker's userland proxy) accepts
+	// connections as soon as the container starts, before libvirtd has bound
+	// the port inside. So a plain TCP dial is not a reliable readiness probe —
+	// retry the libvirt RPC connect (with a fresh client per attempt) until
+	// libvirtd actually answers the protocol.
+	var client *libvirt.Libvirt
+	if err := connectWithRetry(ctx, hp, func(c *libvirt.Libvirt) error {
+		client = c
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	started = true
@@ -215,6 +219,26 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 		client: client,
 		hasKVM: hasKVM,
 	}, nil
+}
+
+// connectWithRetry dials libvirtd over TCP and completes the go-libvirt
+// handshake, retrying with a fresh dialer until it succeeds or ctx is done.
+func connectWithRetry(ctx context.Context, hp *docker.HostPort, onSuccess func(*libvirt.Libvirt) error) error {
+	var lastErr error
+	for {
+		client := libvirt.NewWithDialer(dialers.NewRemote(hp.Host, dialers.UsePort(strconv.Itoa(int(hp.Port)))))
+		if err := client.Connect(); err == nil {
+			return onSuccess(client)
+		} else {
+			lastErr = err
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(lastErr, "error connecting to libvirtd")
+		case <-time.After(pollInterval):
+		}
+	}
 }
 
 // hostDeviceExists reports whether a host device path exists, logging at
@@ -228,24 +252,6 @@ func hostDeviceExists(path, image string) bool {
 		"image":  image,
 	}).Debug("host device not found; skipping passthrough")
 	return false
-}
-
-// waitForTCP polls until the libvirtd TCP endpoint accepts connections or
-// ctx is done.
-func waitForTCP(ctx context.Context, addr string) error {
-	d := net.Dialer{}
-	for {
-		conn, err := d.DialContext(ctx, "tcp", addr)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(pollInterval):
-		}
-	}
 }
 
 func (l *libvirtd) Client() *libvirt.Libvirt { return l.client }
