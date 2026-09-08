@@ -39,6 +39,14 @@ const (
 	// listen_tls MUST stay 0: without it libvirtd tries to set up TLS and
 	// aborts when no CA certificate is present.
 	libvirtdConfig = "listen_tcp = 1\nlisten_tls = 0\nauth_tcp = \"none\"\nlisten_addr = \"0.0.0.0\"\n"
+	// qemuConfigPath is the path of qemu.conf inside the container.
+	qemuConfigPath = "/etc/libvirt/qemu.conf"
+	// qemuConfig runs QEMU as root and disables file ownership tracking.
+	// remember_owner = 0 stops libvirt from setting the
+	// trusted.libvirt.security.dac xattr to remember/restore file ownership,
+	// which requires CAP_SYS_ADMIN that a least-privilege container does not
+	// have (otherwise starting a VM fails with "Unable to set XATTR ...").
+	qemuConfig = "user = \"root\"\ngroup = \"root\"\nremember_owner = 0\n"
 	// pollInterval is how often to poll for readiness.
 	pollInterval = 500 * time.Millisecond
 	// connectAttemptTimeout bounds a single go-libvirt Connect() attempt, which
@@ -141,8 +149,15 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 		return nil, errors.Wrap(err, "error writing libvirtd.conf")
 	}
 
+	qemuPath := filepath.Join(cfgDir, "qemu.conf")
+	if err := os.WriteFile(qemuPath, []byte(qemuConfig), 0o600); err != nil {
+		_ = os.RemoveAll(cfgDir)
+		return nil, errors.Wrap(err, "error writing qemu.conf")
+	}
+
 	containerOpts := []docker.ContainerOption{
 		docker.WithBinds(cfgPath + ":" + libvirtdConfigPath + ":ro"),
+		docker.WithBinds(qemuPath + ":" + qemuConfigPath + ":ro"),
 	}
 
 	// Devices are mounted only when they exist on the host. A missing /dev/kvm
@@ -163,7 +178,12 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 	}
 
 	if o.privileged {
-		containerOpts = append(containerOpts, docker.WithPrivileged())
+		containerOpts = append(containerOpts,
+			docker.WithPrivileged(),
+			// Booting VMs requires creating cgroups under /sys/fs/cgroup;
+			// expose the host cgroup hierarchy (rw) so libvirt can do so.
+			docker.WithBinds("/sys/fs/cgroup:/sys/fs/cgroup"),
+		)
 	} else {
 		containerOpts = append(containerOpts,
 			docker.WithCapDrop("ALL"),
