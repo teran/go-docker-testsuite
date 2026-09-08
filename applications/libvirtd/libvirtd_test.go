@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -266,7 +267,19 @@ func TestLibvirtdCreateCirrosVM(t *testing.T) {
 		_ = conn.DomainDestroy(dom)
 		_ = conn.DomainUndefine(dom)
 	}()
-	r.NoError(conn.DomainCreate(dom))
+
+	// Booting a VM requires creating a cgroup under /sys/fs/cgroup/machine.
+	// That is only possible when the Docker daemon exposes a writable cgroup v2
+	// hierarchy for the (privileged) container; some daemons (e.g. GitHub
+	// runners, Docker Desktop in certain setups) expose it read-only or
+	// non-delegated, in which case libvirt cannot start QEMU. That is an
+	// environment limitation, not a defect of our launch — skip gracefully.
+	if err := conn.DomainCreate(dom); err != nil {
+		if strings.Contains(err.Error(), "/sys/fs/cgroup/machine") {
+			t.Skipf("VM boot requires a writable cgroup v2 hierarchy for the container: %v", err)
+		}
+		r.NoError(err)
+	}
 
 	// The domain must be running (VIR_DOMAIN_RUNNING == 1). This only requires
 	// QEMU to start (TCG is fine without /dev/kvm), not a full guest boot.
