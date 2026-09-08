@@ -30,7 +30,7 @@ or object storage — without mocks.
 | ------ | ---------------- |
 | `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name`, `ID` |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
-| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`) |
+| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`) |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
 | `Application` | Wraps `Container` with lifecycle hooks (`BeforeRun`, `AfterRun`, `BeforeClose`, `AfterClose`) |
 | `Group` | Isolated internal Docker network; runs multiple `Application`s with DNS resolution |
@@ -56,6 +56,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | `applications/redis` | Redis | `github.com/go-redis/redis/v8` |
 | `applications/scylladb` | ScyllaDB (CQL) | `github.com/gocql/gocql` |
 | `applications/vault` | HashiCorp Vault | `github.com/hashicorp/vault-client-go` |
+| `applications/libvirtd` | libvirtd (KVM/QEMU) | `github.com/digitalocean/go-libvirt` |
 
 Every application package returns a typed client interface and exposes a
 `Close(ctx context.Context) error` method. The rest of the surface differs by

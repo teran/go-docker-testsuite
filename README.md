@@ -62,6 +62,7 @@ Here's the full list:
 | [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)           | Redis with go-redis client           |
 | [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb)     | ScyllaDB with gocql client           |
 | [Vault](https://www.vaultproject.io/)                      | [`applications/vault`](./applications/vault)           | HashiCorp Vault                      |
+| [Libvirtd](https://libvirt.org/)                           | [`applications/libvirtd`](./applications/libvirtd)     | KVM/QEMU virtualization manager      |
 | —                                                          | `applications/*/versions/`                             | Per-version integration tests        |
 
 > **Ceph image:** the Ceph wrapper runs the multi-arch demo image

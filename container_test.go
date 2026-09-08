@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	dockerContainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/strslice"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -25,6 +27,52 @@ func TestImagePrefix(t *testing.T) {
 	c, err := NewContainer("test", "image:test", []string{}, NewEnvironment(), NewPortBindings())
 	r.NoError(err)
 	r.Equal("test-prefix/image:test", c.(*container).image)
+}
+
+func TestWithDevices(t *testing.T) {
+	r := require.New(t)
+
+	// The option must not require a running Docker daemon, so exercise it
+	// through NewHostConfig with an empty PortBindings.
+	hc, err := NewHostConfig(NewPortBindings(), WithDevices(
+		"/dev/kvm",
+		"/dev/net/tun:/dev/net/tun",
+		"/dev/foo:/dev/bar:rw",
+	))
+	r.NoError(err)
+
+	r.Equal([]dockerContainer.DeviceMapping{
+		{
+			PathOnHost:        "/dev/kvm",
+			PathInContainer:   "/dev/kvm",
+			CgroupPermissions: "rwm",
+		},
+		{
+			PathOnHost:        "/dev/net/tun",
+			PathInContainer:   "/dev/net/tun",
+			CgroupPermissions: "rwm",
+		},
+		{
+			PathOnHost:        "/dev/foo",
+			PathInContainer:   "/dev/bar",
+			CgroupPermissions: "rw",
+		},
+	}, hc.Devices)
+}
+
+func TestWithCapabilities(t *testing.T) {
+	r := require.New(t)
+
+	hc, err := NewHostConfig(NewPortBindings(),
+		WithCapDrop("ALL"),
+		WithCapAdd("NET_ADMIN", "SYS_NICE"),
+		WithSecurityOpt("seccomp=unconfined"),
+	)
+	r.NoError(err)
+
+	r.Equal(strslice.StrSlice{"ALL"}, hc.CapDrop)
+	r.Equal(strslice.StrSlice{"NET_ADMIN", "SYS_NICE"}, hc.CapAdd)
+	r.Equal([]string{"seccomp=unconfined"}, hc.SecurityOpt)
 }
 
 func TestContainerRun(t *testing.T) {
