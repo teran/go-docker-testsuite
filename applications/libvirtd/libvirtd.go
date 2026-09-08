@@ -39,6 +39,13 @@ const (
 	libvirtdConfig = "listen_tcp = 1\nauth_tcp = \"none\"\n"
 	// pollInterval is how often to poll for readiness.
 	pollInterval = 500 * time.Millisecond
+	// connectAttemptTimeout bounds a single go-libvirt Connect() attempt, which
+	// can otherwise block indefinitely while libvirtd is still starting.
+	connectAttemptTimeout = 5 * time.Second
+	// disconnectTimeout bounds a single go-libvirt Disconnect() attempt, which
+	// can otherwise block on its RPC response channel when libvirtd is
+	// unresponsive.
+	disconnectTimeout = 5 * time.Second
 )
 
 // libvirtCaps is the least-privilege capability set QEMU/libvirtd need for
@@ -223,15 +230,33 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 
 // connectWithRetry dials libvirtd over TCP and completes the go-libvirt
 // handshake, retrying with a fresh dialer until it succeeds or ctx is done.
+//
+// go-libvirt's Connect() can block indefinitely: its RPC waits on a response
+// channel, and when libvirtd is listening but not yet serving the protocol it
+// never fills that channel (the host TCP port / Docker proxy accepts
+// connections before libvirtd binds inside). Each attempt is therefore bounded
+// by connectAttemptTimeout so a slow startup cannot hang the test.
 func connectWithRetry(ctx context.Context, hp *docker.HostPort, onSuccess func(*libvirt.Libvirt) error) error {
 	var lastErr error
 	for {
 		client := libvirt.NewWithDialer(dialers.NewRemote(hp.Host, dialers.UsePort(strconv.Itoa(int(hp.Port)))))
-		if err := client.Connect(); err == nil {
-			return onSuccess(client)
-		} else {
-			lastErr = err
+
+		attemptCtx, cancel := context.WithTimeout(ctx, connectAttemptTimeout)
+		errCh := make(chan error, 1)
+		go func() { errCh <- client.Connect() }()
+
+		var err error
+		select {
+		case err = <-errCh:
+		case <-attemptCtx.Done():
+			err = attemptCtx.Err()
 		}
+		cancel()
+
+		if err == nil {
+			return onSuccess(client)
+		}
+		lastErr = err
 
 		select {
 		case <-ctx.Done():
@@ -263,7 +288,18 @@ func (l *libvirtd) HasKVM() bool { return l.hasKVM }
 func (l *libvirtd) Close(ctx context.Context) error {
 	var err error
 	if l.client != nil {
-		err = l.client.Disconnect()
+		// Bound Disconnect: go-libvirt's Disconnect can block on its RPC
+		// response channel when libvirtd is unresponsive, which would hang
+		// cleanup. A bounded attempt is better than a deadlock in a test.
+		dc, cancel := context.WithTimeout(ctx, disconnectTimeout)
+		errCh := make(chan error, 1)
+		go func() { errCh <- l.client.Disconnect() }()
+		select {
+		case err = <-errCh:
+		case <-dc.Done():
+			err = dc.Err()
+		}
+		cancel()
 	}
 	if cerr := l.c.Close(ctx); cerr != nil && err == nil {
 		err = cerr
