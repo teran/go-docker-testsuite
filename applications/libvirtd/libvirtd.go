@@ -36,7 +36,9 @@ const (
 	libvirtdConfigPath = "/etc/libvirt/libvirtd.conf"
 	// libvirtdConfig is the configuration we inject to enable TCP listening
 	// without authentication (suitable for ephemeral test containers).
-	libvirtdConfig = "listen_tcp = 1\nauth_tcp = \"none\"\n"
+	// listen_tls MUST stay 0: without it libvirtd tries to set up TLS and
+	// aborts when no CA certificate is present.
+	libvirtdConfig = "listen_tcp = 1\nlisten_tls = 0\nauth_tcp = \"none\"\nlisten_addr = \"0.0.0.0\"\n"
 	// pollInterval is how often to poll for readiness.
 	pollInterval = 500 * time.Millisecond
 	// connectAttemptTimeout bounds a single go-libvirt Connect() attempt, which
