@@ -30,13 +30,52 @@ or object storage — without mocks.
 | ------ | ---------------- |
 | `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name`, `ID` |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
-| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`) |
+| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`) |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
 | `Application` | Wraps `Container` with lifecycle hooks (`BeforeRun`, `AfterRun`, `BeforeClose`, `AfterClose`) |
 | `Group` | Isolated internal Docker network; runs multiple `Application`s with DNS resolution |
 | `Environment` | Fluent DSL for typed env vars (`StringVar`, `IntVar`, `BoolVar`, etc.) |
 | `PortBindings` | DNAT port mapping: random or one-to-one allocation |
 | `Matcher` | `func(line string) bool` — substring, exact, or regexp |
+
+#### Resource limits (host/CI protection)
+
+A small, orthogonal set of `ContainerOption`s guards the host and CI runners
+from runaway test containers. Each option maps to exactly one `HostConfig`
+field, follows the existing `WithX(...) ContainerOption` convention, and takes
+raw numeric/string values (no parsing, so it cannot fail):
+
+- `WithMemoryLimit(bytes int64)` — hard RAM limit (`HostConfig.Memory`,
+  bytes). `0` = no limit. Enforcing a hard limit may let the kernel OOM-kill
+  the application inside the container, which can be undesirable for some
+  tests.
+- `WithMemoryReservation(bytes int64)` — soft memory limit
+  (`HostConfig.MemoryReservation`, bytes). Best-effort; the container may
+  exceed it under pressure.
+- `WithMemorySwap(bytes int64)` — total memory + swap limit
+  (`HostConfig.MemorySwap`). Set equal to the memory limit to disable swap, or
+  `-1` for unlimited swap. Unlike `docker run --memory`, it is **not**
+  auto-derived from `WithMemoryLimit`; set it explicitly. For the CLI-style
+  `2x` behaviour pass `WithMemorySwap(2 * memBytes)`.
+- `WithCPUs(count float64)` — CPU usage cap in vCPUs (`HostConfig.NanoCPUs`).
+  Values `<= 0` are ignored (no limit). Fractional limits `< 1` rely on the CFS
+  quota and can be inaccurate on CI runners with few vCPUs.
+- `WithCpusetCpus(cpus string)` — pin to a set of host CPUs
+  (`HostConfig.CpusetCpus`, e.g. `"0-2,4"`).
+- `WithPidsLimit(limit int64)` — cap on processes/threads
+  (`HostConfig.PidsLimit`); protects the runner from fork bombs. `0`/`-1` =
+  unlimited.
+- `ParseRAMSize(s string) (int64, error)` — helper wrapping
+  `github.com/docker/go-units.RAMInBytes` to turn `"512m"`/`"1g"` into bytes.
+  Returns an error (never panics) per the `pkg/errors` convention, so string
+  sizes can be parsed once and passed to the byte-based options.
+
+Options are independent and order-independent: each writes one field, so a
+later option never silently overrides an earlier one. Callers are responsible
+for cross-field invariants (e.g. not setting `MemorySwap < Memory`); Docker
+rejects those at create time. CFS `CPUQuota`/`CPUPeriod`, `CPUShares`,
+`MemorySwappiness` and the Windows-only `CPUCount`/`CPUPercent` are deliberately
+left out of the core for now and can be added on demand.
 
 ### Application layer (`applications/`)
 

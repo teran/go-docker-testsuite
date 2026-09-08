@@ -122,6 +122,70 @@ func WithSecurityOpt(opts ...string) ContainerOption {
 	}
 }
 
+// WithMemoryLimit caps the container's memory usage (bytes) via
+// HostConfig.Memory.
+func WithMemoryLimit(bytes int64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.Memory = bytes
+	}
+}
+
+// WithMemoryReservation sets a soft memory reservation (bytes) via
+// HostConfig.MemoryReservation.
+func WithMemoryReservation(bytes int64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.MemoryReservation = bytes
+	}
+}
+
+// WithMemorySwap sets the swap limit (bytes) via HostConfig.MemorySwap.
+// -1 disables swap; a value equal to Memory effectively disables swap;
+// typically callers pass 2*Memory to allow double the memory in swap.
+func WithMemorySwap(bytes int64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.MemorySwap = bytes
+	}
+}
+
+// WithCPUs sets the CPU limit as a fractional vCPU count via
+// HostConfig.NanoCPUs (e.g. 0.5 → 500000000 nanos). Non-positive values are
+// ignored (no-op).
+func WithCPUs(count float64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		if count <= 0 {
+			return
+		}
+		hc.NanoCPUs = int64(count * 1e9)
+	}
+}
+
+// WithCpusetCpus pins the container to specific host CPUs via
+// HostConfig.CpusetCpus (e.g. "0-2,7").
+func WithCpusetCpus(cpus string) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.CpusetCpus = cpus
+	}
+}
+
+// WithPidsLimit caps the number of processes inside the container via
+// HostConfig.PidsLimit.
+func WithPidsLimit(limit int64) ContainerOption {
+	return func(hc *dockerContainer.HostConfig) {
+		hc.PidsLimit = &limit
+	}
+}
+
+// ParseRAMSize parses a human-readable size string (e.g. "512m", "1g",
+// "1.5g") into bytes, wrapping github.com/docker/go-units.RAMInBytes via
+// pkg/errors.
+func ParseRAMSize(s string) (int64, error) {
+	n, err := units.RAMInBytes(s)
+	if err != nil {
+		return 0, errors.Wrap(err, "error parsing RAM size")
+	}
+	return n, nil
+}
+
 // Container exposes interface to control the container runtime
 type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error
