@@ -33,7 +33,7 @@ const (
 	// (16509) without auth for integration testing. Requires /dev/kvm
 	// passthrough for KVM acceleration (falls back to TCG software emulation
 	// without it).
-	Libvirtd = "ghcr.io/teran/libvirtd-container/libvirtd:v0.1.0"
+	Libvirtd = "ghcr.io/teran/libvirtd-container/libvirtd:v0.1.1"
 
 	// Ceph (RGW demo) image tag, published multi-arch (amd64+arm64) from
 	// github.com/teran/ceph-container. Images are tagged v<version> for the
