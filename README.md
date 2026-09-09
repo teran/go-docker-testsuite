@@ -24,6 +24,12 @@ Go tests.
   (MySQL, PostgreSQL, Redis, Kafka, etc.)
 - **Hooks** — lifecycle callbacks
   (BeforeRun, AfterRun, BeforeClose, AfterClose) per container
+- **Exec** — run commands inside a running container and capture
+  stdout, stderr, and the exit code
+- **Lifecycle commands** — run startup / after-ready commands via exec
+  (`WithStartupCommand`, `WithAfterReadyCommand`)
+- **Resource limits** — cap CPU/memory/pids to protect the host and CI
+  (`WithMemoryLimit`, `WithCPUs`, `WithPidsLimit`, ...)
 - **Matchers** — await container logs with substring, exact,
   or regexp matchers before proceeding
 - **Environment builder** — fluent DSL to declare typed environment variables
@@ -180,6 +186,70 @@ docker.HookTypeAfterClose  // after container stops
 ```
 
 Pass hooks via `docker.NewApplication(container, hook1, hook2, ...)`.
+
+### Exec and lifecycle commands
+
+Run a command inside a running container with `Container.Exec` and inspect
+its output and exit code:
+
+```go
+res, err := c.Exec(ctx, []string{"echo", "hello"})
+if err != nil {
+    // infrastructure failure (create/attach/inspect or ctx cancelled)
+    panic(err)
+}
+
+if err := res.Error(); err != nil {
+    // non-zero exit code (res.ExitCode, res.Stderr available for diagnostics)
+    panic(err)
+}
+
+fmt.Printf("exit code: %d\n", res.ExitCode)
+fmt.Printf("stdout: %s", res.Stdout)
+```
+
+To run initialization commands automatically, use `NewContainerWithLifecycle`
+together with `WithStartupCommand` (executed right after the container starts)
+and `WithAfterReadyCommand` (executed once a readiness log line appears):
+
+```go
+c, err := docker.NewContainerWithLifecycle(
+    "my-service",
+    "busybox:latest",
+    []string{"sh", "-c", "echo READY; sleep 300"},
+    nil,
+    nil,
+    docker.WithStartupCommand("sh", "-c", "echo boot > /tmp/startup.txt"),
+    docker.WithAfterReadyCommand(
+        docker.NewSubstringMatcher("READY"),
+        "sh", "-c", "echo seeded > /tmp/seeded.txt",
+    ),
+)
+if err != nil {
+    panic(err)
+}
+defer c.Close(ctx)
+
+if err := c.Run(ctx); err != nil {
+    panic(err)
+}
+```
+
+For host/CI protection, cap resource usage with the `With*` options (see
+[SPEC.md](./SPEC.md) → "Resource limits"):
+
+```go
+c, err := docker.NewContainer(
+    "my-service",
+    "busybox:latest",
+    []string{"sleep", "300"},
+    nil,
+    nil,
+    docker.WithMemoryLimit(128*1024*1024), // 128 MiB
+    docker.WithCPUs(0.5),                  // half a vCPU
+    docker.WithPidsLimit(256),
+)
+```
 
 ### Image prefix / proxy
 

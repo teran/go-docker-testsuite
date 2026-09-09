@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +25,11 @@ import (
 
 const (
 	defaultStopTimeout = 1 * time.Minute
+
+	// defaultExecTimeout bounds a single in-container lifecycle command when
+	// the caller's context carries no deadline. Without it a hung exec would
+	// block Run() indefinitely.
+	defaultExecTimeout = 1 * time.Minute
 )
 
 var errImageIsNotPulled = errors.New("image is not pulled")
@@ -189,14 +196,39 @@ func ParseRAMSize(s string) (int64, error) {
 // Container exposes interface to control the container runtime
 type Container interface {
 	AwaitOutput(ctx context.Context, m Matcher) error
-	GetOutput(ctx context.Context, m ...Matcher) ([]string, error)
 	Close(ctx context.Context) error
+	Exec(ctx context.Context, cmd []string) (*ExecResult, error)
+	GetOutput(ctx context.Context, m ...Matcher) ([]string, error)
 	ID() ContainerID
 	Name() string
 	NetworkAttach(networkID string) error
 	Ping(ctx context.Context) error
 	Run(ctx context.Context) error
 	URL(proto Protocol, port uint16) (*HostPort, error)
+}
+
+// ExecResult carries the captured output and exit status of an Exec call.
+type ExecResult struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
+// Error returns a non-nil error if the command exited non-zero (includes exit
+// code + stderr for diagnostics); nil when ExitCode == 0.
+func (r *ExecResult) Error() error {
+	if r == nil || r.ExitCode == 0 {
+		return nil
+	}
+	return errors.Errorf("command exited with code %d: %s", r.ExitCode, string(r.Stderr))
+}
+
+// Combined returns Stdout followed by Stderr concatenated.
+func (r *ExecResult) Combined() []byte {
+	var b bytes.Buffer
+	b.Write(r.Stdout)
+	b.Write(r.Stderr)
+	return b.Bytes()
 }
 
 type container struct {
@@ -211,6 +243,10 @@ type container struct {
 	ports         *PortBindings
 	indirectPorts map[string]string
 	containerOpts []ContainerOption
+
+	startupCmd        []string
+	afterReadyCmd     []string
+	afterReadyMatcher Matcher
 }
 
 // New creates new container instance from remote docker image
@@ -251,6 +287,53 @@ func NewContainerWithClient(cli *client.Client, name, image string, cmd []string
 		indirectPorts: make(map[string]string),
 		containerOpts: opts,
 	}, nil
+}
+
+// LifecycleOption configures behavior that runs inside the container during
+// Run(), in addition to HostConfig-based ContainerOptions. It does not modify
+// the Docker HostConfig.
+type LifecycleOption func(*container)
+
+// WithStartupCommand runs cmd inside the container immediately after it
+// starts, failing Run() if the command errors or exits non-zero.
+func WithStartupCommand(cmd ...string) LifecycleOption {
+	return func(c *container) {
+		c.startupCmd = cmd
+	}
+}
+
+// WithAfterReadyCommand runs cmd inside the container once the readiness
+// matcher is satisfied by the container output. When ready is nil the command
+// runs immediately after the startup command (or right after start if none).
+func WithAfterReadyCommand(ready Matcher, cmd ...string) LifecycleOption {
+	return func(c *container) {
+		c.afterReadyMatcher = ready
+		c.afterReadyCmd = cmd
+	}
+}
+
+// WithHostConfig adapts ordinary ContainerOption values so they can be
+// supplied alongside lifecycle options. They modify the Docker HostConfig as
+// usual.
+func WithHostConfig(opts ...ContainerOption) LifecycleOption {
+	return func(c *container) {
+		c.containerOpts = append(c.containerOpts, opts...)
+	}
+}
+
+// NewContainerWithLifecycle is NewContainer plus lifecycle options. Existing
+// NewContainer is unchanged.
+func NewContainerWithLifecycle(name, image string, cmd []string, environment Environment, ports *PortBindings, opts ...LifecycleOption) (Container, error) {
+	c, err := NewContainer(name, image, cmd, environment, ports)
+	if err != nil {
+		return nil, err
+	}
+
+	cc := c.(*container)
+	for _, o := range opts {
+		o(cc)
+	}
+	return cc, nil
 }
 
 // AwaitOutput blocks the execution for any of (whatever comes first): string matched Matcher or timeout
@@ -314,6 +397,59 @@ func (c *container) GetOutput(ctx context.Context, ms ...Matcher) ([]string, err
 	}
 
 	return out, s.Err()
+}
+
+// Exec runs a command inside the running container and captures its output and
+// exit status. Non-zero exit code is NOT an error — it is reported in the
+// returned ExecResult, so callers can assert on failure as easily as success.
+// Errors are non-nil only when the exec *infrastructure* fails
+// (create/attach/inspect/IO or ctx cancelled). Requires container to be
+// running.
+func (c *container) Exec(ctx context.Context, cmd []string) (*ExecResult, error) {
+	if c.containerID == "" {
+		return nil, errors.New("container is not running")
+	}
+
+	log.WithFields(log.Fields{
+		"container": c.containerID,
+		"cmd":       cmd,
+	}).Trace("executing command in container via exec")
+
+	execConfig := dockerContainer.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+
+	execResp, err := c.cli.ContainerExecCreate(ctx, c.containerID, execConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating exec instance")
+	}
+
+	attachResp, err := c.cli.ContainerExecAttach(ctx, execResp.ID, dockerContainer.ExecAttachOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "error attaching to exec")
+	}
+	defer attachResp.Close()
+
+	// Docker multiplexes stdout and stderr into a single stream with headers.
+	// Use stdcopy to demultiplex and capture each stream separately.
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
+	if err != nil {
+		return nil, errors.Wrap(err, "error demuxing exec output")
+	}
+
+	inspectResp, err := c.cli.ContainerExecInspect(ctx, execResp.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "error inspecting exec result")
+	}
+
+	return &ExecResult{
+		Stdout:   stdoutBuf.Bytes(),
+		Stderr:   stderrBuf.Bytes(),
+		ExitCode: inspectResp.ExitCode,
+	}, nil
 }
 
 func (c *container) Name() string {
@@ -390,7 +526,61 @@ func (c *container) Run(ctx context.Context) error {
 	}
 
 	err = c.cli.ContainerStart(ctx, c.containerID, dockerContainer.StartOptions{})
-	return errors.Wrap(err, "error starting container")
+	if err != nil {
+		return errors.Wrap(err, "error starting container")
+	}
+
+	// Run in-container lifecycle commands (if any), in order:
+	//  1. startup command — fail fast on exec error or non-zero exit.
+	//  2. after-ready command — optionally gated on a readiness matcher
+	//     (AwaitOutput), then fail fast on exec error or non-zero exit.
+	if len(c.startupCmd) > 0 {
+		if err := c.runLifecycleExec(ctx, c.startupCmd); err != nil {
+			return err
+		}
+	}
+
+	if len(c.afterReadyCmd) > 0 {
+		if c.afterReadyMatcher != nil {
+			if err := c.AwaitOutput(ctx, c.afterReadyMatcher); err != nil {
+				return errors.Wrap(err, "error awaiting readiness for after-ready command")
+			}
+		}
+
+		if err := c.runLifecycleExec(ctx, c.afterReadyCmd); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// runLifecycleExec runs a single lifecycle command inside the container and
+// fails fast when the exec infrastructure fails or the command exits non-zero.
+func (c *container) runLifecycleExec(ctx context.Context, cmd []string) error {
+	execCtx, cancel := c.lifecycleExecContext(ctx)
+	defer cancel()
+
+	res, err := c.Exec(execCtx, cmd)
+	if err != nil {
+		return errors.Wrap(err, "error executing lifecycle command")
+	}
+	if res.ExitCode != 0 {
+		return errors.Errorf("lifecycle command exited with code %d: %s",
+			res.ExitCode, string(res.Stderr))
+	}
+	return nil
+}
+
+// lifecycleExecContext returns a context bounded by the caller's deadline when
+// one is present, or by defaultExecTimeout when the caller provided none. This
+// keeps individual lifecycle commands from hanging Run() indefinitely when no
+// deadline is set, while still respecting an explicit caller deadline.
+func (c *container) lifecycleExecContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, defaultExecTimeout)
 }
 
 // Close cleans up the env (stops & removes the container)

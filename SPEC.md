@@ -28,7 +28,13 @@ or object storage — without mocks.
 
 | Type | Responsibility |
 | ------ | ---------------- |
-| `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name`, `ID` |
+| `Container` | Interface: `Run`, `Close`, `Ping`, `AwaitOutput`, `GetOutput`, `URL`, `NetworkAttach`, `Name`, `ID`, `Exec` |
+| `ExecResult` | Output + exit status of an `Exec` call (`Stdout`, `Stderr`, `ExitCode`); helpers `Error()`, `Combined()` |
+| `LifecycleOption` | Configures exec commands that run inside the container during `Run` (startup / after-ready) |
+| `WithStartupCommand` | Lifecycle option: command run via exec right after start, before `Run` returns |
+| `WithAfterReadyCommand` | Lifecycle option: command run via exec once readiness (a matching log line) is satisfied |
+| `WithHostConfig` | Adapter to combine existing `ContainerOption`s with `LifecycleOption`s in `NewContainerWithLifecycle` |
+| `NewContainerWithLifecycle` | `NewContainer` + lifecycle options (existing `NewContainer` unchanged) |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
 | `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`) |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
@@ -76,6 +82,38 @@ for cross-field invariants (e.g. not setting `MemorySwap < Memory`); Docker
 rejects those at create time. CFS `CPUQuota`/`CPUPeriod`, `CPUShares`,
 `MemorySwappiness` and the Windows-only `CPUCount`/`CPUPercent` are deliberately
 left out of the core for now and can be added on demand.
+
+### Exec & lifecycle commands
+
+`Container.Exec(ctx, cmd) (*ExecResult, error)` runs a command inside the
+running container via the Docker exec API (`ContainerExecCreate` + `Attach` +
+`Inspect`). It captures stdout, stderr, and the exit code. A non-zero exit code
+is reported in the result, not as an `Exec` error, so tests can assert on
+failure; `ExecResult.Error()` provides a must-succeed check. `Exec` requires a
+running container and returns a wrapped error otherwise.
+
+`WithStartupCommand` / `WithAfterReadyCommand` are `LifecycleOption`s executed
+inside `container.Run`, so they fire in both standalone and Group flows (Group
+delegates to `container.Run`). They are complementary to, not a replacement
+for, the Group hooks.
+
+```text
+Group.Run (per application):
+  1. Hook: BeforeRun
+  2. Container.Run:
+       a. pull image → create → attach to network → start
+       b. Exec(WithStartupCommand)                    [if set]
+       c. AwaitOutput(ready matcher)                  [if WithAfterReadyCommand set]
+       d. Exec(WithAfterReadyCommand)                 [if set]
+  3. Hook: AfterRun
+```
+
+Readiness for the after-ready command is defined by a log line matching the
+given `Matcher` (via `AwaitOutput`); it is NOT `Ping`, which only checks the
+Docker daemon. A non-zero exit code from either lifecycle command fails `Run`
+(fail-fast on broken init). Lifecycle-command timeouts follow the caller's
+`Run` context; a bounded per-command timeout is applied when the context has no
+deadline.
 
 ### Application layer (`applications/`)
 

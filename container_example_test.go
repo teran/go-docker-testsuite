@@ -69,3 +69,89 @@ func Example_container() {
 	}
 	fmt.Printf("echo response: %s\n", resp.GetMessage())
 }
+
+// This example demonstrates running a command inside a running container via
+// Container.Exec: capturing stdout, stderr and the exit code, and checking
+// that the command succeeded with ExecResult.Error().
+func ExampleContainer_Exec() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	c, err := docker.NewContainer(
+		"exec-example",
+		"busybox:latest",
+		[]string{"sleep", "300"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		fmt.Printf("error creating container: %v\n", err)
+		return
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	if err := c.Run(ctx); err != nil {
+		fmt.Printf("error running container: %v\n", err)
+		return
+	}
+
+	res, err := c.Exec(ctx, []string{"echo", "hello"})
+	if err != nil {
+		fmt.Printf("error executing command: %v\n", err)
+		return
+	}
+
+	if err := res.Error(); err != nil {
+		fmt.Printf("command failed: %v\n", err)
+		return
+	}
+
+	fmt.Printf("exit code: %d\n", res.ExitCode)
+	fmt.Printf("output: %s", res.Stdout)
+}
+
+// This example demonstrates NewContainerWithLifecycle: running a startup
+// command right after the container starts and an after-ready command once a
+// readiness log line is observed.
+func ExampleNewContainerWithLifecycle() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	c, err := docker.NewContainerWithLifecycle(
+		"lifecycle-example",
+		"busybox:latest",
+		[]string{"sh", "-c", "echo READY; sleep 300"},
+		nil,
+		nil,
+		docker.WithStartupCommand("sh", "-c", "echo startup > /tmp/startup.txt"),
+		docker.WithAfterReadyCommand(
+			docker.NewSubstringMatcher("READY"),
+			"sh", "-c", "echo seeded > /tmp/seeded.txt",
+		),
+	)
+	if err != nil {
+		fmt.Printf("error creating container: %v\n", err)
+		return
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	if err := c.Run(ctx); err != nil {
+		fmt.Printf("error running container: %v\n", err)
+		return
+	}
+
+	startup, err := c.Exec(ctx, []string{"cat", "/tmp/startup.txt"})
+	if err != nil {
+		fmt.Printf("error reading startup marker: %v\n", err)
+		return
+	}
+
+	seeded, err := c.Exec(ctx, []string{"cat", "/tmp/seeded.txt"})
+	if err != nil {
+		fmt.Printf("error reading seeded marker: %v\n", err)
+		return
+	}
+
+	fmt.Printf("startup: %s", startup.Stdout)
+	fmt.Printf("seeded: %s", seeded.Stdout)
+}
