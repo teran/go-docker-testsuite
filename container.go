@@ -1,11 +1,13 @@
 package docker
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"context"
 	"io"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -247,6 +249,8 @@ type container struct {
 	startupCmd        []string
 	afterReadyCmd     []string
 	afterReadyMatcher Matcher
+
+	files []File
 }
 
 // New creates new container instance from remote docker image
@@ -309,6 +313,30 @@ func WithAfterReadyCommand(ready Matcher, cmd ...string) LifecycleOption {
 	return func(c *container) {
 		c.afterReadyMatcher = ready
 		c.afterReadyCmd = cmd
+	}
+}
+
+// File describes a single file to copy into the container filesystem before
+// the container starts. Content is the raw file bytes, Destination is the
+// absolute path inside the container (parent directories are created
+// automatically), and Mode is the Unix permission bits applied to the file.
+// A zero Mode defaults to 0644.
+type File struct {
+	Content     []byte
+	Mode        os.FileMode
+	Destination string
+}
+
+// WithFiles copies the given files into the container filesystem during Run(),
+// immediately after the container is created (and attached to the network) and
+// before it starts — and therefore before WithStartupCommand runs.
+//
+// Files are packed into a single tar and pushed via the Docker SDK
+// CopyToContainer at the container root; parent directories are auto-created.
+// An empty file list is a no-op.
+func WithFiles(files ...File) LifecycleOption {
+	return func(c *container) {
+		c.files = files
 	}
 }
 
@@ -525,6 +553,10 @@ func (c *container) Run(ctx context.Context) error {
 		}
 	}
 
+	if err := c.copyFiles(ctx); err != nil {
+		return err
+	}
+
 	err = c.cli.ContainerStart(ctx, c.containerID, dockerContainer.StartOptions{})
 	if err != nil {
 		return errors.Wrap(err, "error starting container")
@@ -568,6 +600,105 @@ func (c *container) runLifecycleExec(ctx context.Context, cmd []string) error {
 	if res.ExitCode != 0 {
 		return errors.Errorf("lifecycle command exited with code %d: %s",
 			res.ExitCode, string(res.Stderr))
+	}
+	return nil
+}
+
+// copyFiles copies the configured files into the container filesystem before
+// it starts. The files are packed into a single uncompressed tar (built with
+// the standard-library archive/tar) and pushed to the container root via the
+// Docker SDK CopyToContainer. Parent directories of each Destination are
+// auto-created by emitting explicit directory entries in the tar.
+//
+// An empty file list is a no-op. Any validation, tar-building or copy error
+// is wrapped with pkg/errors and fails Run (fail-fast).
+func (c *container) copyFiles(ctx context.Context) error {
+	if len(c.files) == 0 {
+		return nil
+	}
+
+	log.WithFields(log.Fields{
+		"container": c.containerID,
+		"files":     len(c.files),
+	}).Trace("copying files into container")
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	seenDirs := make(map[string]struct{})
+	for _, f := range c.files {
+		if err := validateFileDestination(f.Destination); err != nil {
+			return err
+		}
+
+		// Emit explicit directory entries for every missing parent of the
+		// destination so nested paths are created automatically.
+		dir := path.Dir(f.Destination)
+		cur := ""
+		for _, part := range strings.Split(strings.TrimPrefix(dir, "/"), "/") {
+			if part == "" {
+				continue
+			}
+			cur += "/" + part
+			if _, ok := seenDirs[cur]; ok {
+				continue
+			}
+			seenDirs[cur] = struct{}{}
+
+			hdr := &tar.Header{
+				Name:     strings.TrimPrefix(cur, "/") + "/",
+				Mode:     0755,
+				Typeflag: tar.TypeDir,
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return errors.Wrap(err, "error writing tar directory header")
+			}
+		}
+
+		mode := f.Mode
+		if mode == 0 {
+			mode = 0644
+		}
+
+		hdr := &tar.Header{
+			Name:     strings.TrimPrefix(f.Destination, "/"),
+			Mode:     int64(mode),
+			Size:     int64(len(f.Content)),
+			Typeflag: tar.TypeReg,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return errors.Wrap(err, "error writing tar file header")
+		}
+		if _, err := tw.Write(f.Content); err != nil {
+			return errors.Wrap(err, "error writing tar file content")
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		return errors.Wrap(err, "error closing tar writer")
+	}
+
+	if err := c.cli.CopyToContainer(ctx, c.containerID, "/", &buf, dockerContainer.CopyToContainerOptions{}); err != nil {
+		return errors.Wrap(err, "error copying files to container")
+	}
+
+	return nil
+}
+
+// validateFileDestination checks that a file destination is an absolute,
+// non-empty path and does not contain any ".." component (defence-in-depth
+// against traversal outside the intended target).
+func validateFileDestination(dest string) error {
+	if dest == "" {
+		return errors.New("file destination is empty")
+	}
+	if !strings.HasPrefix(dest, "/") {
+		return errors.Errorf("file destination %q is not absolute", dest)
+	}
+	for _, part := range strings.Split(dest, "/") {
+		if part == ".." {
+			return errors.Errorf("file destination %q must not contain '..'", dest)
+		}
 	}
 	return nil
 }
