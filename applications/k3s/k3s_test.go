@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,8 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
-
-
 )
 
 const (
@@ -39,7 +36,6 @@ type k3sTestSuite struct {
 	cancelFunc context.CancelFunc
 	app        K3s
 	clientset  *kubernetes.Clientset
-	dockerCli  *client.Client
 }
 
 func (s *k3sTestSuite) SetupSuite() {
@@ -51,19 +47,12 @@ func (s *k3sTestSuite) SetupSuite() {
 	s.clientset, err = s.app.Clientset(s.ctx)
 	s.Require().NoError(err)
 	s.Require().NotNil(s.clientset)
-
-	s.dockerCli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	s.Require().NoError(err)
 }
 
 func (s *k3sTestSuite) TearDownSuite() {
 	ctx, cancel := context.WithTimeout(s.ctx, cleanupTimeout)
 	defer cancel()
 	defer s.cancelFunc()
-
-	if s.dockerCli != nil {
-		_ = s.dockerCli.Close()
-	}
 
 	err := s.app.Close(ctx)
 	s.Require().NoError(err)
@@ -255,12 +244,13 @@ func (s *k3sTestSuite) TestLoadBalancerService() {
 	// from the host. Instead, we verify by curling the service from inside
 	// the k3s container using Docker exec.
 	svcURL := fmt.Sprintf("http://%s:%d/", lbIngressHost, echoPort)
-	output, err := execInContainer(s.ctx, s.dockerCli, s.app.ID(),
-		"wget", "-qO-", "--timeout=10", svcURL)
+	res, err := s.app.(*k3s).c.Exec(s.ctx, []string{"wget", "-qO-", "--timeout=10", svcURL})
 	r.NoError(err, "should be able to reach the service from inside the container")
+	if err := res.Error(); err != nil {
+		r.NoError(err, "wget should exit zero")
+	}
+	output := res.Stdout
 
 	s.T().Logf("Service response (from inside container): %s", strings.TrimSpace(string(output)))
 	s.T().Log("Successfully verified HTTP communication through LoadBalancer service")
 }
-
-
