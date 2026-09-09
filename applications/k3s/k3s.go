@@ -2,7 +2,6 @@
 package k3s
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -10,9 +9,6 @@ import (
 	"strings"
 	"time"
 
-	dockerContainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
@@ -46,7 +42,6 @@ type K3s interface {
 
 type k3s struct {
 	c              docker.Container
-	dockerCli      *client.Client
 	kubeconfigPath string
 	kubeconfigData []byte
 }
@@ -58,11 +53,6 @@ func New(ctx context.Context) (K3s, error) {
 
 // NewWithImage creates a new K3s container with a custom image.
 func NewWithImage(ctx context.Context, image string) (K3s, error) {
-	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating Docker client")
-	}
-
 	log.WithFields(log.Fields{
 		"image": image,
 	}).Debug("creating k3s container")
@@ -113,14 +103,17 @@ func NewWithImage(ctx context.Context, image string) (K3s, error) {
 	// Give k3s a moment to fully initialize and write the kubeconfig.
 	time.Sleep(waitForReadyDelay)
 
-	kubeconfigData, err := execReadFile(ctx, dockerCli, c.ID(), "/etc/rancher/k3s/k3s.yaml")
+	res, err := c.Exec(ctx, []string{"cat", "/etc/rancher/k3s/k3s.yaml"})
 	if err != nil {
 		return nil, errors.Wrap(err, "error retrieving kubeconfig from k3s container")
 	}
+	if err := res.Error(); err != nil {
+		return nil, errors.Wrap(err, "error retrieving kubeconfig from k3s container")
+	}
+	kubeconfigData := res.Stdout
 
 	k := &k3s{
 		c:              c,
-		dockerCli:      dockerCli,
 		kubeconfigData: kubeconfigData,
 	}
 
@@ -139,10 +132,6 @@ func (k *k3s) Close(ctx context.Context) error {
 		if err := os.Remove(k.kubeconfigPath); err != nil {
 			return errors.Wrap(err, "error removing kubeconfig file")
 		}
-	}
-
-	if k.dockerCli != nil {
-		defer func() { _ = k.dockerCli.Close() }()
 	}
 
 	return k.c.Close(ctx)
@@ -200,54 +189,4 @@ func (k *k3s) rewriteKubeconfig(ctx context.Context) error {
 
 	k.kubeconfigPath = kubeconfigPath
 	return nil
-}
-
-// execReadFile reads a file from inside a container using Docker exec.
-func execReadFile(ctx context.Context, cli *client.Client, containerID, path string) ([]byte, error) {
-	return execInContainer(ctx, cli, containerID, "cat", path)
-}
-
-// execInContainer runs an arbitrary command inside a container and returns its stdout.
-func execInContainer(ctx context.Context, cli *client.Client, containerID, cmd string, args ...string) ([]byte, error) {
-	log.WithFields(log.Fields{
-		"container": containerID,
-		"cmd":       cmd,
-		"args":      args,
-	}).Trace("executing command in container via exec")
-
-	execConfig := dockerContainer.ExecOptions{
-		Cmd:          append([]string{cmd}, args...),
-		AttachStdout: true,
-		AttachStderr: true,
-	}
-
-	execResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating exec instance")
-	}
-
-	attachResp, err := cli.ContainerExecAttach(ctx, execResp.ID, dockerContainer.ExecAttachOptions{})
-	if err != nil {
-		return nil, errors.Wrap(err, "error attaching to exec")
-	}
-	defer attachResp.Close()
-
-	// Docker multiplexes stdout and stderr into a single stream with headers.
-	// Use stdcopy to demultiplex and capture only stdout.
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
-	if err != nil {
-		return nil, errors.Wrap(err, "error demuxing exec output")
-	}
-
-	inspectResp, err := cli.ContainerExecInspect(ctx, execResp.ID)
-	if err != nil {
-		return nil, errors.Wrap(err, "error inspecting exec result")
-	}
-	if inspectResp.ExitCode != 0 {
-		return nil, errors.Errorf("exec command exited with code %d: %s",
-			inspectResp.ExitCode, stderrBuf.String())
-	}
-
-	return stdoutBuf.Bytes(), nil
 }
