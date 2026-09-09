@@ -34,7 +34,7 @@ or object storage — without mocks.
 | `WithStartupCommand` | Lifecycle option: command run via exec right after start, before `Run` returns |
 | `WithAfterReadyCommand` | Lifecycle option: command run via exec once readiness (a matching log line) is satisfied |
 | `WithFiles` | Lifecycle option: copy files into the container filesystem before start (before `WithStartupCommand`) |
-| `File` | A file to copy: content bytes, permissions (`Mode`), and absolute in-container `Destination` |
+| `File` | A file to copy: content bytes, permissions (`Mode`), numeric owner (`Uid`/`Gid`, default `root:root`), and absolute in-container `Destination` |
 | `WithHostConfig` | Adapter to combine existing `ContainerOption`s with `LifecycleOption`s in `NewContainerWithLifecycle` |
 | `NewContainerWithLifecycle` | `NewContainer` + lifecycle options (existing `NewContainer` unchanged) |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
@@ -131,17 +131,28 @@ both the standalone and Group flows, since Group delegates to `container.Run`.
 
 ```go
 type File struct {
-    Content     []byte      // file bytes to write
+    Content     io.Reader   // streamed file content; Size bytes must be available
+    Size        int64       // exact byte length of Content (required)
     Mode        os.FileMode // permission bits; 0 defaults to 0644
     Destination string      // absolute path inside the container, e.g. "/etc/app.conf"
+    Uid         int         // numeric owner uid; 0 (default) = root
+    Gid         int         // numeric owner gid; 0 (default) = root
 }
+
+// FileFromBytes builds a File from an in-memory byte slice (sets Size to
+// len(data)); use File directly with an io.Reader + Size for large files.
+func FileFromBytes(destination string, data []byte, mode os.FileMode, uid, gid int) File
 ```
 
 Files are packed into a single uncompressed tar (standard-library
 `archive/tar`) and pushed with the Docker SDK `CopyToContainer` at the
-container root (`dstPath = "/"`). Parent directories of each `Destination` are
-auto-created by emitting explicit directory entries in the tar, so nested paths
-and previously-missing directories need no prior setup.
+container root (`dstPath = "/"`). Content is **streamed** via `io.CopyN` from
+each file's `io.Reader` into the tar (built over an `io.Pipe`), so files larger
+than available RAM can be copied without buffering them in memory; `Size` must
+equal the exact number of bytes the reader will yield and is written into the
+tar header. Parent directories of each `Destination` are auto-created by
+emitting explicit directory entries in the tar, so nested paths and
+previously-missing directories need no prior setup.
 
 Behavior and edge cases:
 
@@ -153,11 +164,18 @@ Behavior and edge cases:
   order, so a later entry overwrites an earlier one at the same path.
 - **Default mode** is `0644`; pass `Mode` explicitly (e.g. `0600`) for files
   that hold secrets.
+- **Owner** defaults to `root:root` (`Uid:0`, `Gid:0`). Set `Uid`/`Gid` to
+  chown the file inside the container; Docker honours the numeric ids. Only the
+  file itself is chowned — the auto-created parent directories remain
+  `root:root` (`0755`). Backward compatible: existing calls that omit
+  `Uid`/`Gid` behave exactly as before.
 - **Errors** during copy (invalid destination, tar/CopyToContainer failure) are
   wrapped with `pkg/errors` and fail `Run` (fail-fast), consistent with the
   other lifecycle steps.
-- **Large or many files** are better served by a bind mount (`WithBinds`);
-  `WithFiles` targets small configuration/seed content held in memory.
+- **Large files** are supported without buffering: pass an `io.Reader` +
+  `Size` directly (content is streamed into the tar); use `FileFromBytes` for
+  small configuration/seed content. For very large payloads a bind mount
+  (`WithBinds`) is still a lighter-weight alternative.
 
 The `Container` interface is **not** extended: file seeding is a
 configuration-time concern, expressed as an option like `WithBinds`, rather

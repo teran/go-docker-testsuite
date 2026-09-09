@@ -317,14 +317,38 @@ func WithAfterReadyCommand(ready Matcher, cmd ...string) LifecycleOption {
 }
 
 // File describes a single file to copy into the container filesystem before
-// the container starts. Content is the raw file bytes, Destination is the
+// the container starts. Content is streamed from an io.Reader and written into
+// the tar verbatim, so files larger than available RAM can be copied without
+// buffering them in memory. Size MUST equal the exact number of bytes Content
+// will yield: it is written into the tar header and used to stream exactly
+// Size bytes (Content is not buffered).
+//
+// Mode is the Unix permission bits (0 defaults to 0644); Destination is the
 // absolute path inside the container (parent directories are created
-// automatically), and Mode is the Unix permission bits applied to the file.
-// A zero Mode defaults to 0644.
+// automatically). Uid and Gid set the numeric owner of the file; both default
+// to 0 (root:root) when omitted. Docker honours the numeric ids and only the
+// file itself is chowned — auto-created parent directories stay root:root (0755).
 type File struct {
-	Content     []byte
-	Mode        os.FileMode
-	Destination string
+	Content     io.Reader   // streamed file content; Size bytes must be available
+	Size        int64       // exact byte length of Content (required)
+	Mode        os.FileMode // permission bits; 0 defaults to 0644
+	Destination string      // absolute path inside the container, e.g. "/etc/app.conf"
+	Uid         int         // numeric owner uid; 0 (default) = root
+	Gid         int         // numeric owner gid; 0 (default) = root
+}
+
+// FileFromBytes builds a File from an in-memory byte slice. It wraps data in a
+// bytes.Reader and sets Size to len(data). Use this for small configuration and
+// seed content; use File directly with an io.Reader + Size for large files.
+func FileFromBytes(destination string, data []byte, mode os.FileMode, uid, gid int) File {
+	return File{
+		Content:     bytes.NewReader(data),
+		Size:        int64(len(data)),
+		Mode:        mode,
+		Destination: destination,
+		Uid:         uid,
+		Gid:         gid,
+	}
 }
 
 // WithFiles copies the given files into the container filesystem during Run(),
@@ -605,7 +629,7 @@ func (c *container) runLifecycleExec(ctx context.Context, cmd []string) error {
 }
 
 // copyFiles copies the configured files into the container filesystem before
-// it starts. The files are packed into a single uncompressed tar (built with
+// it starts. Each file is streamed into a single uncompressed tar (built with
 // the standard-library archive/tar) and pushed to the container root via the
 // Docker SDK CopyToContainer. Parent directories of each Destination are
 // auto-created by emitting explicit directory entries in the tar.
@@ -617,40 +641,60 @@ func (c *container) copyFiles(ctx context.Context) error {
 		return nil
 	}
 
+	// Validate eagerly (fail fast) before spawning the producer goroutine.
+	for _, f := range c.files {
+		if err := validateFileDestination(f.Destination); err != nil {
+			return err
+		}
+		if f.Size < 0 {
+			return errors.Errorf("file %q has negative size %d", f.Destination, f.Size)
+		}
+	}
+
 	log.WithFields(log.Fields{
 		"container": c.containerID,
 		"files":     len(c.files),
 	}).Trace("copying files into container")
 
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
+	pr, pw := io.Pipe()
 
+	// errc is buffered (size 1) so the producer never blocks after the
+	// consumer (CopyToContainer) has returned.
+	errc := make(chan error, 1)
+	go func() {
+		errc <- c.writeTar(pw)
+		_ = pw.Close() // signal EOF to the reader when the tar is complete
+	}()
+
+	err := c.cli.CopyToContainer(ctx, c.containerID, "/", pr, dockerContainer.CopyToContainerOptions{})
+
+	// Always release the write end: if CopyToContainer failed early it stops
+	// reading pr, and CloseWithError unblocks the producer so it never leaks.
+	_ = pw.CloseWithError(err)
+
+	werr := <-errc // join the producer goroutine
+
+	if err != nil {
+		return errors.Wrap(err, "error copying files to container")
+	}
+	if werr != nil {
+		return errors.Wrap(werr, "error writing tar stream")
+	}
+	return nil
+}
+
+// writeTar writes every File into a single uncompressed tar stream on w.
+// Each file's known Size is written into its header and io.CopyN streams
+// exactly that many bytes without buffering content in memory. Parent
+// directories are emitted as explicit directory entries (root:root, 0755).
+// Returns the first error encountered, wrapped with pkg/errors (fail-fast).
+func (c *container) writeTar(w io.Writer) error {
+	tw := tar.NewWriter(w)
 	seenDirs := make(map[string]struct{})
 	for _, f := range c.files {
-		if err := validateFileDestination(f.Destination); err != nil {
-			return err
-		}
-
-		// Emit explicit directory entries for every missing parent of the
-		// destination so nested paths are created automatically.
-		dir := path.Dir(f.Destination)
-		cur := ""
-		for _, part := range strings.Split(strings.TrimPrefix(dir, "/"), "/") {
-			if part == "" {
-				continue
-			}
-			cur += "/" + part
-			if _, ok := seenDirs[cur]; ok {
-				continue
-			}
-			seenDirs[cur] = struct{}{}
-
-			hdr := &tar.Header{
-				Name:     strings.TrimPrefix(cur, "/") + "/",
-				Mode:     0755,
-				Typeflag: tar.TypeDir,
-			}
-			if err := tw.WriteHeader(hdr); err != nil {
+		// emit explicit directory entries for every missing parent (root:root 0755)
+		for _, part := range missingParents(f.Destination, seenDirs) {
+			if err := tw.WriteHeader(&tar.Header{Name: part, Mode: 0755, Typeflag: tar.TypeDir}); err != nil {
 				return errors.Wrap(err, "error writing tar directory header")
 			}
 		}
@@ -659,30 +703,47 @@ func (c *container) copyFiles(ctx context.Context) error {
 		if mode == 0 {
 			mode = 0644
 		}
-
 		hdr := &tar.Header{
 			Name:     strings.TrimPrefix(f.Destination, "/"),
 			Mode:     int64(mode),
-			Size:     int64(len(f.Content)),
+			Size:     f.Size,
 			Typeflag: tar.TypeReg,
+			Uid:      f.Uid,
+			Gid:      f.Gid,
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
 			return errors.Wrap(err, "error writing tar file header")
 		}
-		if _, err := tw.Write(f.Content); err != nil {
-			return errors.Wrap(err, "error writing tar file content")
+		if n, err := io.CopyN(tw, f.Content, f.Size); err != nil {
+			return errors.Wrapf(err, "error writing content for %q (copied %d of %d bytes)", f.Destination, n, f.Size)
 		}
 	}
-
 	if err := tw.Close(); err != nil {
 		return errors.Wrap(err, "error closing tar writer")
 	}
-
-	if err := c.cli.CopyToContainer(ctx, c.containerID, "/", &buf, dockerContainer.CopyToContainerOptions{}); err != nil {
-		return errors.Wrap(err, "error copying files to container")
-	}
-
 	return nil
+}
+
+// missingParents returns the tar entry names (relative, with a trailing slash)
+// of every ancestor directory of dest that has not been emitted yet, in order
+// from the root. seenDirs is updated in place so each parent is written only
+// once across all files.
+func missingParents(dest string, seenDirs map[string]struct{}) []string {
+	dir := path.Dir(dest)
+	cur := ""
+	var missing []string
+	for _, part := range strings.Split(strings.TrimPrefix(dir, "/"), "/") {
+		if part == "" {
+			continue
+		}
+		cur += "/" + part
+		if _, ok := seenDirs[cur]; ok {
+			continue
+		}
+		seenDirs[cur] = struct{}{}
+		missing = append(missing, strings.TrimPrefix(cur, "/")+"/")
+	}
+	return missing
 }
 
 // validateFileDestination checks that a file destination is an absolute,

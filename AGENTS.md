@@ -45,6 +45,13 @@ other languages cannot be accepted.
 7. **Types**: Named types (`type ContainerID = string`) for documentation
    only — they are actual string aliases, not opaque types.
 
+8. **File seeding (`WithFiles`)**: When a container needs configuration or
+   seed files, prefer `WithFiles` (a `LifecycleOption` via
+   `NewContainerWithLifecycle`) over shelling out. `File` streams `Content`
+   from an `io.Reader` with a **required exact `Size`** so files larger than
+   RAM are copied without buffering; use the `FileFromBytes` helper for small
+   in-memory content. Always validate `Destination` (absolute path, no `..`).
+
 ## Project structure
 
 ```text
