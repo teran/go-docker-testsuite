@@ -18,7 +18,7 @@ func init() {
 	log.SetLevel(log.TraceLevel)
 }
 
-func TestGroup(t *testing.T) {
+func TestGroupRun(t *testing.T) {
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)

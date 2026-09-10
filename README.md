@@ -37,6 +37,8 @@ Go tests.
 - **Environment builder** — fluent DSL to declare typed environment variables
 - **Port bindings** — DNAT port mapping with random or one-to-one port allocation
 - **IMAGE_PREFIX** — optional `IMAGE_PREFIX` env var to route images through a proxy/mirror
+- **`*testing.T` binding** — bind a container/group to a test for automatic
+  teardown (`t.Cleanup`) and `t.Logf` lifecycle logging, with safe `t.Parallel()`
 
 ## Requirements
 
@@ -175,6 +177,75 @@ func main() {
     defer g.Close(ctx)
 }
 ```
+
+### `*testing.T` binding & `t.Parallel()`
+
+Bind a container (or group) to a `*testing.T` so its lifecycle follows the
+test automatically — no manual `defer c.Close`. `TestContainer` wraps a
+`Container` and registers a `t.Cleanup` handler on the first `Run`, so the
+container is always stopped and removed when the test finishes, whether it
+succeeds, calls `t.Fatal`, panics, or skips. Cleanup handlers run in LIFO
+order within the test's context. `TestContainer` implements the full
+`Container` interface, so it can be used anywhere a `Container` is expected.
+
+```go
+func TestRedis(t *testing.T) {
+    t.Parallel()
+
+    c, err := docker.NewContainerWithT(
+        t,
+        "redis",
+        images.Redis,
+        nil,
+        docker.NewEnvironment(),
+        docker.NewPortBindings().PortDNAT(docker.ProtoTCP, 6379),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    c.RunT(ctx) // fail-fast; registers t.Cleanup
+
+    // ... use container ... // no manual defer; cleanup on success/fatal/panic/skip
+}
+```
+
+Two ways to start a bound container:
+
+- `Run(ctx) error` — returns the error (and logs it via `t.Logf`) rather than
+  failing the test. This keeps `TestContainer` compatible with applications,
+  groups, and existing code that expects the `Container` contract.
+- `RunT(ctx)` — fail-fast: if the container fails to start, the test is
+  failed immediately with `t.Fatal`. Prefer this in tests.
+
+To wrap an existing container or group (created with the base
+`NewContainer`/`NewContainerWithLifecycle`/`NewGroup` constructors) use
+`BindToT(t, c)` or `BindGroupToT(t, g)`:
+
+```go
+c, err := docker.NewContainer("my-service", "busybox:latest", nil, nil, nil)
+if err != nil {
+    t.Fatal(err)
+}
+
+docker.BindToT(t, c) // lifecycle now tied to the test
+_ = c.Run(ctx)
+```
+
+Application packages expose T-bound constructors that create the container
+*and* start it, all tied to the test: `applications/postgres`
+(`NewWithT(t, ctx)` — uses the default `images.Postgres`, or
+`NewWithImageT(t, ctx, image)`), `applications/redis` and `applications/mysql`
+(`NewWithT(t, ctx, image)`). PostgreSQL is bound first because it is the most
+commonly used; the other application packages will follow.
+
+**Safe `t.Parallel()`.** Each binding owns its own lifecycle: cleanups are
+registered against the correct per-test `*testing.T` and run in that test's
+context, so parallel tests do not interfere with one another's teardown. To
+avoid collisions, container/network names and host ports are randomized per
+container, so concurrent tests do not clash. Keep the parallel fan-out modest
+and combine `t.Parallel()` with resource limits (`WithMemoryLimit`,
+`WithCPUs`, `WithPidsLimit`) to protect the host and CI runners.
 
 ### Lifecycle hooks
 

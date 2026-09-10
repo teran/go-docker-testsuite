@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -62,6 +63,78 @@ type mysql struct {
 
 func New(ctx context.Context, image string) (MySQL, error) {
 	c, err := docker.NewContainer(
+		"mysql",
+		image,
+		nil,
+		docker.
+			NewEnvironment().
+			StringVar("MYSQL_ALLOW_EMPTY_PASSWORD", "true"),
+		docker.
+			NewPortBindings().
+			PortDNAT(docker.ProtoTCP, 3306),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating new container")
+	}
+
+	app := &mysql{
+		c: c,
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, errors.Wrap(err, "error running container")
+	}
+
+	re, err := regexp.Compile(
+		`(mysqld|mariadbd):\s+ready\s+for\s+connections\.`,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error compiling regex")
+	}
+
+	if err := c.AwaitOutput(ctx, docker.NewRegexpMatcher(re)); err != nil {
+		return nil, errors.Wrap(err, "error awaiting container output")
+	}
+
+	dsn, err := app.DSN("")
+	if err != nil {
+		return nil, errors.Wrap(err, "error obtaining database DSN")
+	}
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening database connection")
+	}
+	defer func() { _ = db.Close() }()
+
+	for i := 0; i < 30; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		}
+
+		log.Debug("Database is not ready yet. Awaiting for ping to pass ...")
+
+		time.Sleep(1 * time.Second)
+	}
+
+	started = true
+	return app, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context, image string) (MySQL, error) {
+	c, err := docker.NewContainerWithT(
+		t,
 		"mysql",
 		image,
 		nil,

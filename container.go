@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/distribution/reference"
@@ -257,6 +258,9 @@ type container struct {
 	afterReadyMatcher Matcher
 
 	files []File
+
+	closeMu sync.Mutex
+	closed  bool
 }
 
 // New creates new container instance from remote docker image
@@ -781,8 +785,22 @@ func (c *container) lifecycleExecContext(ctx context.Context) (context.Context, 
 	return context.WithTimeout(ctx, defaultExecTimeout)
 }
 
-// Close cleans up the env (stops & removes the container)
+// Close cleans up the env (stops & removes the container).
+//
+// Close is idempotent: only the first call performs the stop/remove; any
+// subsequent call returns nil immediately. This makes it safe for overlapping
+// cleanup paths — e.g. a TestContainer's t.Cleanup handler and an explicit
+// wrapper Close, or a Group.Close and an individual member container's Close —
+// to both invoke Close without double-removing the container.
 func (c *container) Close(ctx context.Context) error {
+	c.closeMu.Lock()
+	if c.closed {
+		c.closeMu.Unlock()
+		return nil
+	}
+	c.closed = true
+	c.closeMu.Unlock()
+
 	if c.containerID == "" {
 		return nil
 	}
