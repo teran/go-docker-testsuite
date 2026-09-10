@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/teran/go-docker-testsuite"
@@ -20,6 +21,49 @@ type redis struct {
 func New(ctx context.Context, image string) (Redis, error) {
 	c, err := docker.
 		NewContainer(
+			"redis",
+			image,
+			nil,
+			docker.NewEnvironment(),
+			docker.
+				NewPortBindings().
+				PortDNAT(docker.ProtoTCP, 6379),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("* Ready to accept connections"))
+	if err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &redis{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context, image string) (Redis, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
 			"redis",
 			image,
 			nil,

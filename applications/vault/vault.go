@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/hashicorp/vault-client-go"
@@ -32,6 +33,49 @@ type vaultImpl struct {
 
 func New(ctx context.Context, image string) (Vault, error) {
 	c, err := docker.NewContainer(
+		"vault",
+		image,
+		nil,
+		docker.NewEnvironment().
+			StringVar("VAULT_LOG_LEVEL", "trace"),
+		docker.NewPortBindings().
+			PortDNAT(docker.ProtoTCP, 8200).
+			PortDNAT(docker.ProtoTCP, 8201),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.AwaitOutput(ctx, docker.NewRegexpMatcher(reTokenMatch))
+	if err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &vaultImpl{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context, image string) (Vault, error) {
+	c, err := docker.NewContainerWithT(
+		t,
 		"vault",
 		image,
 		nil,

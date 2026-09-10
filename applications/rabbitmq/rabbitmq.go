@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"testing"
 	"time"
 
 	docker "github.com/teran/go-docker-testsuite"
@@ -43,6 +44,56 @@ func New(ctx context.Context) (RabbitMQ, error) {
 
 func NewWithImage(ctx context.Context, image string) (RabbitMQ, error) {
 	c, err := docker.NewContainer(
+		"rabbitmq",
+		image,
+		nil,
+		docker.NewEnvironment().
+			StringVar("RABBITMQ_DEFAULT_USER", defaultUser).
+			StringVar("RABBITMQ_DEFAULT_PASS", defaultPassword),
+		docker.NewPortBindings().
+			PortDNAT(docker.ProtoTCP, amqpPort).
+			PortDNAT(docker.ProtoTCP, managementPort),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := c.AwaitOutput(ctx, docker.NewSubstringMatcher("Server startup complete")); err != nil {
+		return nil, err
+	}
+
+	time.Sleep(1 * time.Second)
+
+	started = true
+	return &rabbitmq{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (RabbitMQ, error) {
+	return NewWithImageT(t, ctx, images.RabbitMQ)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (RabbitMQ, error) {
+	c, err := docker.NewContainerWithT(
+		t,
 		"rabbitmq",
 		image,
 		nil,

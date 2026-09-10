@@ -37,6 +37,14 @@ or object storage — without mocks.
 | `File` | A file to copy: content bytes, permissions (`Mode`), numeric owner (`Uid`/`Gid`, default `root:root`), and absolute in-container `Destination` |
 | `WithHostConfig` | Adapter to combine existing `ContainerOption`s with `LifecycleOption`s in `NewContainerWithLifecycle` |
 | `NewContainerWithLifecycle` | `NewContainer` + lifecycle options (existing `NewContainer` unchanged) |
+| `TestContainer` | Wraps a `Container` + `*testing.T`; implements the full `Container` interface, registering a `t.Cleanup` on first `Run` and making `Close` idempotent |
+| `TestGroup` | Wraps a `Group` + `*testing.T`; registers a `t.Cleanup` on first `Run` and makes `Close` idempotent |
+| `BindToT` | Wraps an existing `Container` with a `*testing.T` (`BindToT(t, c) *TestContainer`) |
+| `BindGroupToT` | Wraps an existing `Group` with a `*testing.T` (`BindGroupToT(t, g) *TestGroup`) |
+| `NewContainerWithT` | `NewContainer` bound to a `*testing.T`, returning a `*TestContainer` |
+| `NewContainerWithLifecycleT` | `NewContainerWithLifecycle` bound to a `*testing.T`, returning a `*TestContainer` |
+| `NewGroupT` | `NewGroup` bound to a `*testing.T`, returning a `*TestGroup` |
+| `RunT` | Fail-fast variant of `Run` on `TestContainer`/`TestGroup` — fails the test via `t.Fatal` instead of returning the error |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
 | `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`) |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
@@ -182,6 +190,58 @@ configuration-time concern, expressed as an option like `WithBinds`, rather
 than a runtime method. This keeps the interface stable for existing application
 packages and mock implementers.
 
+### Testing.T binding
+
+`TestContainer` and `TestGroup` are **decorators** that tie a container or
+group's lifecycle to a `*testing.T`. `TestContainer` embeds the full
+`Container` interface by delegating every method to the wrapped container, so
+it can be passed anywhere a `Container` is expected (including `Application`
+and `Group`). `TestGroup` likewise delegates `Run`/`Close` to the wrapped
+`Group`.
+
+Binding is purely additive:
+
+- `NewContainerWithT(t, name, image, cmd, env, ports, opts...) *TestContainer`
+  mirrors `NewContainer`.
+- `NewContainerWithLifecycleT(t, name, image, cmd, env, ports, opts...)
+  *TestContainer` mirrors `NewContainerWithLifecycle`.
+- `BindToT(t, c Container) *TestContainer` wraps an already-created container.
+- `NewGroupT(t, name, apps...) *TestGroup` mirrors `NewGroup`.
+- `BindGroupToT(t, g Group) *TestGroup` wraps an already-created group.
+
+The base `Container` interface and `Run(ctx) error` are **unchanged**; binding
+uses `*testing.T` (safe for concurrent use) and routes lifecycle events to
+`t.Logf` instead of logrus.
+
+**When `t.Cleanup` is registered.** On the **first** `Run` (guarded by a
+`sync.Once`), *before* the underlying run starts, a `t.Cleanup` handler is
+registered. The handler closes the container/group with a 30-second timeout.
+Because it is registered before the run, cleanup covers both the run and the
+wait-for-readiness phase, and it fires whether the test succeeds, calls
+`t.Fatal`, panics, or skips — in **LIFO order** within that test's context.
+
+**Idempotency.** `TestContainer.Close`, `TestGroup.Close`, and the base
+`container.Close` are all idempotent (guarded by a `sync.Once` /
+`sync.Mutex`+flag respectively): only the first call performs the work. This
+makes overlapping cleanup paths safe — e.g. a `TestContainer`'s `t.Cleanup`
+handler racing an explicit wrapper `Close`, or a `Group.Close` also closing an
+individually-bound member container — without double-removing anything.
+
+**Fail-fast vs error-return contract.** Two start methods are provided:
+
+- `Run(ctx) error` — returns the error (logging it via `t.Logf`) rather than
+  failing the test, preserving compatibility with the `Container` contract,
+  applications, and groups.
+- `RunT(ctx)` — fail-fast: calls `t.Fatal` on start failure. Use this in
+  tests.
+
+**`t.Parallel()` guarantees.** Each binding owns its own lifecycle: cleanups
+are registered against the correct per-test `*testing.T` and run in that
+test's context, so parallel tests do not interfere with one another's
+teardown. Container/network names and host ports are randomized per container,
+so concurrent tests do not collide. Bindings themselves are safe for
+concurrent use.
+
 ### Application layer (`applications/`)
 
 Each sub-package wraps a specific service and returns a typed client:
@@ -262,6 +322,9 @@ Group.Close (per application, in reverse order):
 - **Versioned integration tests** live under `applications/*/versions/`.
 - **Error wrapping** uses `github.com/pkg/errors` consistently.
 - **Logging** uses `github.com/sirupsen/logrus` — trace-level for internals.
+- **T-bound constructors are additive** — the base `Container` interface and
+  `Run(ctx)` are unchanged; binding uses `*testing.T` (safe for concurrent use)
+  and routes lifecycle events to `t.Logf`.
 
 ## CI
 

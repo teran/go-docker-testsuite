@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -67,6 +68,85 @@ func New(ctx context.Context) (ScyllaDB, error) {
 func NewWithImage(ctx context.Context, image string) (ScyllaDB, error) {
 	c, err := docker.
 		NewContainer(
+			"scylladb",
+			image,
+			[]string{
+				"--overprovisioned=1",
+				"--memory=1G",
+				"--smp=1",
+				"--developer-mode=1",
+				"--idle-poll-time-us=0",
+				"--poll-aio 0",
+			},
+			docker.NewEnvironment(),
+			docker.NewPortBindings().
+				PortDNAT(docker.ProtoTCP, 9042),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ipRe := `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\`
+	l := fmt.Sprintf(
+		`\] cql_server_controller - Starting listening for CQL clients on %s:9042 \(unencrypted, non-shard-aware\)$`,
+		ipRe,
+	)
+	re, err := regexp.Compile(l)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.AwaitOutput(ctx, docker.NewRegexpMatcher(re))
+	if err != nil {
+		return nil, err
+	}
+
+	sd := &scylladb{
+		c: c,
+	}
+
+	cfg, err := sd.ClusterConfig("")
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := cfg.CreateSession()
+	if err != nil {
+		return nil, err
+	}
+
+	sd.session = session
+
+	started = true
+	return sd, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (ScyllaDB, error) {
+	return NewWithImageT(t, ctx, images.ScyllaDB)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (ScyllaDB, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
 			"scylladb",
 			image,
 			[]string{

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -58,6 +59,88 @@ func NewWithImage(ctx context.Context, image string) (K3s, error) {
 	}).Debug("creating k3s container")
 
 	c, err := docker.NewContainer(
+		containerName,
+		image,
+		[]string{
+			"server",
+			"--disable=traefik",
+			"--disable=metrics-server",
+			"--disable=local-storage",
+		},
+		docker.NewEnvironment().
+			StringVar("K3S_TOKEN", "go-docker-testsuite-secret-token").
+			StringVar("K3S_KUBECONFIG_MODE", "644"),
+		docker.NewPortBindings().
+			PortDNAT(docker.ProtoTCP, apiPort),
+		docker.WithPrivileged(),
+		docker.WithTmpfs(map[string]string{
+			"/run": "",
+			"/tmp": "",
+		}),
+		docker.WithBinds("/lib/modules:/lib/modules:ro"),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating k3s container")
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, errors.Wrap(err, "error running k3s container")
+	}
+
+	log.Trace("waiting for k3s readiness: Node controller sync successful")
+	if err := c.AwaitOutput(ctx, docker.NewSubstringMatcher("Node controller sync successful")); err != nil {
+		return nil, errors.Wrap(err, "error waiting for k3s readiness")
+	}
+
+	// Give k3s a moment to fully initialize and write the kubeconfig.
+	time.Sleep(waitForReadyDelay)
+
+	res, err := c.Exec(ctx, []string{"cat", "/etc/rancher/k3s/k3s.yaml"})
+	if err != nil {
+		return nil, errors.Wrap(err, "error retrieving kubeconfig from k3s container")
+	}
+	if err := res.Error(); err != nil {
+		return nil, errors.Wrap(err, "error retrieving kubeconfig from k3s container")
+	}
+	kubeconfigData := res.Stdout
+
+	k := &k3s{
+		c:              c,
+		kubeconfigData: kubeconfigData,
+	}
+
+	if err := k.rewriteKubeconfig(ctx); err != nil {
+		return nil, errors.Wrap(err, "error rewriting kubeconfig")
+	}
+
+	started = true
+	return k, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (K3s, error) {
+	return NewWithImageT(t, ctx, images.K3s)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (K3s, error) {
+	log.WithFields(log.Fields{
+		"image": image,
+	}).Debug("creating k3s container")
+
+	c, err := docker.NewContainerWithT(
+		t,
 		containerName,
 		image,
 		[]string{

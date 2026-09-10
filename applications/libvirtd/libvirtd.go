@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -195,6 +196,133 @@ func NewWithImage(ctx context.Context, image string, opts ...Option) (Libvirt, e
 	}
 
 	c, err := docker.NewContainer(
+		"libvirtd",
+		image,
+		nil,
+		docker.NewEnvironment(),
+		docker.NewPortBindings().PortDNAT(docker.ProtoTCP, libvirtTCPPort),
+		containerOpts...,
+	)
+	if err != nil {
+		_ = os.RemoveAll(cfgDir)
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+			_ = os.RemoveAll(cfgDir)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	hp, err := c.URL(docker.ProtoTCP, libvirtTCPPort)
+	if err != nil {
+		return nil, err
+	}
+
+	addr := hp.String()
+
+	// Readiness: the host TCP port (Docker's userland proxy) accepts
+	// connections as soon as the container starts, before libvirtd has bound
+	// the port inside. So a plain TCP dial is not a reliable readiness probe —
+	// retry the libvirt RPC connect (with a fresh client per attempt) until
+	// libvirtd actually answers the protocol.
+	var client *libvirt.Libvirt
+	if err := connectWithRetry(ctx, hp, func(c *libvirt.Libvirt) error {
+		client = c
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &libvirtd{
+		c:      c,
+		addr:   addr,
+		client: client,
+		hasKVM: hasKVM,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context, opts ...Option) (Libvirt, error) {
+	return NewWithImageT(t, ctx, images.Libvirtd, opts...)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string, opts ...Option) (Libvirt, error) {
+	o := options{}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	cfgDir, err := os.MkdirTemp("", "libvirtd-*")
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating libvirtd config directory")
+	}
+
+	cfgPath := filepath.Join(cfgDir, "libvirtd.conf")
+	if err := os.WriteFile(cfgPath, []byte(libvirtdConfig), 0o600); err != nil {
+		_ = os.RemoveAll(cfgDir)
+		return nil, errors.Wrap(err, "error writing libvirtd.conf")
+	}
+
+	qemuPath := filepath.Join(cfgDir, "qemu.conf")
+	if err := os.WriteFile(qemuPath, []byte(qemuConfig), 0o600); err != nil {
+		_ = os.RemoveAll(cfgDir)
+		return nil, errors.Wrap(err, "error writing qemu.conf")
+	}
+
+	containerOpts := []docker.ContainerOption{
+		docker.WithBinds(cfgPath + ":" + libvirtdConfigPath + ":ro"),
+		docker.WithBinds(qemuPath + ":" + qemuConfigPath + ":ro"),
+	}
+
+	// Devices are mounted only when they exist on the host. A missing /dev/kvm
+	// silently downgrades to TCG software emulation (never fails container
+	// creation); a missing /dev/net/tun means user-mode (SLIRP) networking only.
+	hasKVM := hostDeviceExists("/dev/kvm", image)
+	hasTUN := hostDeviceExists("/dev/net/tun", image)
+
+	var devices []string
+	if hasKVM {
+		devices = append(devices, "/dev/kvm:/dev/kvm:rw")
+	}
+	if hasTUN {
+		devices = append(devices, "/dev/net/tun:/dev/net/tun:rw")
+	}
+	if len(devices) > 0 {
+		containerOpts = append(containerOpts, docker.WithDevices(devices...))
+	}
+
+	if o.privileged {
+		containerOpts = append(containerOpts,
+			docker.WithPrivileged(),
+			// Booting VMs requires creating cgroups under /sys/fs/cgroup;
+			// expose the host cgroup hierarchy (rw) so libvirt can do so.
+			docker.WithBinds("/sys/fs/cgroup:/sys/fs/cgroup"),
+		)
+	} else {
+		containerOpts = append(containerOpts,
+			docker.WithCapDrop("ALL"),
+			docker.WithCapAdd(libvirtCaps...),
+			// Keep capabilities minimal but relax seccomp: QEMU needs syscalls
+			// blocked by Docker's default profile to start reliably.
+			docker.WithSecurityOpt("seccomp=unconfined"),
+		)
+	}
+
+	c, err := docker.NewContainerWithT(
+		t,
 		"libvirtd",
 		image,
 		nil,

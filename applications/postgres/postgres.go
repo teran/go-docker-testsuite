@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing"
 	"time"
 
 	pgx "github.com/jackc/pgx/v5"
@@ -64,6 +65,12 @@ func New(ctx context.Context) (PostgreSQL, error) {
 	return NewWithImage(ctx, images.Postgres)
 }
 
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (PostgreSQL, error) {
+	return NewWithImageT(t, ctx, images.Postgres)
+}
+
 func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 	c, err := docker.
 		NewContainer(
@@ -89,7 +96,73 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 			_ = c.Close(cleanupCtx)
 		}
 	}()
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
 
+	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("database system is ready to accept connections"))
+	if err != nil {
+		return nil, err
+	}
+
+	hp, err := c.URL(docker.ProtoTCP, 5432)
+	if err != nil {
+		return nil, err
+	}
+
+	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", hp.String(), "postgres")
+
+	// Wait for PostgreSQL to accept TCP connections with a retry loop
+	// instead of a blind sleep, so startup is fast on fast hosts and
+	// resilient on loaded ones.
+	for i := 0; i < 30; i++ {
+		pgconn, pgErr := pgx.Connect(ctx, dsn)
+		if pgErr == nil {
+			_ = pgconn.Close(ctx)
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(1 * time.Second):
+		}
+	}
+
+	started = true
+	return &postgresql{
+		c: c,
+	}, nil
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (PostgreSQL, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
+			"postgres",
+			image,
+			nil,
+			docker.
+				NewEnvironment().
+				StringVar("POSTGRES_HOST_AUTH_METHOD", "trust"),
+			docker.
+				NewPortBindings().
+				PortDNAT(docker.ProtoTCP, 5432),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
 	err = c.Run(ctx)
 	if err != nil {
 		return nil, err

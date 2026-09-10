@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/teran/go-docker-testsuite"
@@ -30,6 +31,107 @@ func New(ctx context.Context) (Kafka, error) {
 
 func NewWithImage(ctx context.Context, image string) (Kafka, error) {
 	c, err := docker.NewContainer(
+		"kafka",
+		image,
+		nil,
+		docker.NewEnvironment().
+			UintVar("KAFKA_NODE_ID", 1).
+			UintVar("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", 1).
+			StringVar("KAFKA_PROCESS_ROLES", "broker,controller").
+			Var("KAFKA_LISTENERS", func(c docker.ContainerInfo) string {
+				bp, err := c.GetExternalPortMapping(docker.ProtoTCP, brokerPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ap, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				return fmt.Sprintf(
+					"PLAINTEXT://0.0.0.0:%d,CONTROLLER://0.0.0.0:%d", bp, ap,
+				)
+			}).
+			Var("KAFKA_ADVERTISED_LISTENERS", func(c docker.ContainerInfo) string {
+				bPort, err := c.GetExternalPortMapping(docker.ProtoTCP, brokerPort)
+				if err != nil {
+					panic(err)
+				}
+
+				aPort, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ip, err := c.GetDockerHostIP()
+				if err != nil {
+					panic(err)
+				}
+
+				return fmt.Sprintf(
+					"PLAINTEXT://%s:%d,CONTROLLER://%s:%d",
+					ip, bPort, ip, aPort,
+				)
+			}).
+			StringVar("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER").
+			StringVar("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT").
+			Var("KAFKA_CONTROLLER_QUORUM_VOTERS", func(c docker.ContainerInfo) string {
+				aPort, err := c.GetExternalPortMapping(docker.ProtoTCP, adminPort)
+				if err != nil {
+					panic(err)
+				}
+
+				ip, err := c.GetDockerHostIP()
+				if err != nil {
+					panic(err)
+				}
+				return fmt.Sprintf("1@%s:%d", ip, aPort)
+			}),
+		docker.NewDirectPortBinding().
+			PortDNAT(docker.ProtoTCP, brokerPort).
+			PortDNAT(docker.ProtoTCP, adminPort),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("] Kafka Server started ("))
+	if err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &kafka{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (Kafka, error) {
+	return NewWithImageT(t, ctx, images.Kafka)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (Kafka, error) {
+	c, err := docker.NewContainerWithT(
+		t,
 		"kafka",
 		image,
 		nil,

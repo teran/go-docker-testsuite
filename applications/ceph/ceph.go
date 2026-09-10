@@ -4,6 +4,7 @@ package ceph
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -56,6 +57,75 @@ func New(ctx context.Context) (Ceph, error) {
 func NewWithImage(ctx context.Context, image string) (Ceph, error) {
 	c, err := docker.
 		NewContainer(
+			"ceph",
+			image,
+			nil,
+			docker.
+				NewEnvironment().
+				StringVar("MON_IP", "127.0.0.1").
+				StringVar("CEPH_PUBLIC_NETWORK", "0.0.0.0/0").
+				StringVar("CEPH_DEMO_UID", DefaultUID).
+				StringVar("CEPH_DEMO_ACCESS_KEY", DefaultAccessKey).
+				StringVar("CEPH_DEMO_SECRET_KEY", DefaultSecretKey).
+				StringVar("RGW_NAME", "localhost"),
+			docker.
+				NewPortBindings().
+				PortDNAT(docker.ProtoTCP, tcpPortRGW).
+				PortDNAT(docker.ProtoTCP, tcpPortMON),
+			docker.WithUlimit("nofile", 65536, 65536),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	// The image logs "SUCCESS: RGW on ..." once the RGW is up and the admin
+	// user is created.
+	if err := c.AwaitOutput(ctx, docker.NewSubstringMatcher("SUCCESS")); err != nil {
+		return nil, err
+	}
+
+	app := &ceph{
+		c:         c,
+		accessKey: DefaultAccessKey,
+		secretKey: DefaultSecretKey,
+	}
+
+	// Give the caller a RGW that already accepts signed requests, guarding
+	// against the readiness race right after the demo user is created and
+	// against transient clock skew between the host and the container.
+	if err := app.waitReady(ctx); err != nil {
+		return nil, err
+	}
+
+	started = true
+	return app, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (Ceph, error) {
+	return NewWithImageT(t, ctx, images.Ceph)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (Ceph, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
 			"ceph",
 			image,
 			nil,
