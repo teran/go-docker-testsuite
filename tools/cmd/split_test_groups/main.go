@@ -231,5 +231,3 @@ func commonParent(dirs []string) string {
 
 	return "./" + app
 }
-
-
