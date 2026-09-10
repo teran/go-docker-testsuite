@@ -26,7 +26,13 @@ import (
 )
 
 const (
-	defaultStopTimeout = 1 * time.Minute
+	// defaultStopTimeout bounds the graceful stop window passed to Docker's
+	// ContainerStop. Integration-test containers are ephemeral and often do not
+	// terminate on SIGTERM (e.g. busybox sleep); Docker force-kills them once
+	// the timeout elapses, so keeping this short avoids a 60s+ stall on every
+	// container Close. Services that need a graceful shutdown are better served
+	// by a container hook than by an unbounded stop timeout.
+	defaultStopTimeout = 3 * time.Second
 
 	// defaultExecTimeout bounds a single in-container lifecycle command when
 	// the caller's context carries no deadline. Without it a hung exec would
