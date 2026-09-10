@@ -28,6 +28,8 @@ Go tests.
   stdout, stderr, and the exit code
 - **Lifecycle commands** — run startup / after-ready commands via exec
   (`WithStartupCommand`, `WithAfterReadyCommand`)
+- **Copy files into containers** — seed files before start with `WithFiles`
+  (`FileFromBytes` for small content, or stream large files via `io.Reader` + `Size`)
 - **Resource limits** — cap CPU/memory/pids to protect the host and CI
   (`WithMemoryLimit`, `WithCPUs`, `WithPidsLimit`, ...)
 - **Matchers** — await container logs with substring, exact,
@@ -248,6 +250,68 @@ c, err := docker.NewContainer(
     docker.WithMemoryLimit(128*1024*1024), // 128 MiB
     docker.WithCPUs(0.5),                  // half a vCPU
     docker.WithPidsLimit(256),
+)
+```
+
+### Copying files into the container (WithFiles)
+
+Seed files into the container filesystem before it starts with `WithFiles`.
+Files are packed into a tar and pushed via the Docker SDK `CopyToContainer`
+before `WithStartupCommand` runs, so both the image entrypoint and startup
+commands can consume them. `WithFiles` is a `LifecycleOption`, so it is used
+through `NewContainerWithLifecycle`.
+
+For small in-memory config, use the `FileFromBytes` helper:
+
+```go
+c, err := docker.NewContainerWithLifecycle(
+    "my-service",
+    "busybox:latest",
+    []string{"sleep", "300"},
+    nil,
+    nil,
+    docker.WithFiles(
+        docker.FileFromBytes("/etc/app.conf", []byte("key=value\n"), 0600, 0, 0),
+    ),
+)
+if err != nil {
+    panic(err)
+}
+defer c.Close(ctx)
+
+if err := c.Run(ctx); err != nil {
+    panic(err)
+}
+```
+
+For files larger than available RAM, pass an `io.Reader` and its exact size —
+the content is streamed into the tar without buffering in memory:
+
+```go
+f, err := os.Open("/data/big.bin")
+if err != nil {
+    panic(err)
+}
+defer f.Close()
+
+st, err := f.Stat()
+if err != nil {
+    panic(err)
+}
+
+c, err := docker.NewContainerWithLifecycle(
+    "my-service",
+    "busybox:latest",
+    []string{"sleep", "300"},
+    nil,
+    nil,
+    docker.WithFiles(docker.File{
+        Content:     f,
+        Size:        st.Size(),
+        Mode:        0644,
+        Destination: "/data/big.bin",
+        // Uid/Gid default to 0 = root:root; set them to chown the file.
+    }),
 )
 ```
 

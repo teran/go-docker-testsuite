@@ -33,6 +33,8 @@ or object storage — without mocks.
 | `LifecycleOption` | Configures exec commands that run inside the container during `Run` (startup / after-ready) |
 | `WithStartupCommand` | Lifecycle option: command run via exec right after start, before `Run` returns |
 | `WithAfterReadyCommand` | Lifecycle option: command run via exec once readiness (a matching log line) is satisfied |
+| `WithFiles` | Lifecycle option: copy files into the container filesystem before start (before `WithStartupCommand`) |
+| `File` | A file to copy: content bytes, permissions (`Mode`), numeric owner (`Uid`/`Gid`, default `root:root`), and absolute in-container `Destination` |
 | `WithHostConfig` | Adapter to combine existing `ContainerOption`s with `LifecycleOption`s in `NewContainerWithLifecycle` |
 | `NewContainerWithLifecycle` | `NewContainer` + lifecycle options (existing `NewContainer` unchanged) |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
@@ -101,10 +103,12 @@ for, the Group hooks.
 Group.Run (per application):
   1. Hook: BeforeRun
   2. Container.Run:
-       a. pull image → create → attach to network → start
-       b. Exec(WithStartupCommand)                    [if set]
-       c. AwaitOutput(ready matcher)                  [if WithAfterReadyCommand set]
-       d. Exec(WithAfterReadyCommand)                 [if set]
+       a. pull image → create → attach to network
+       b. copy files (WithFiles)                      [if set]
+       c. start
+       d. Exec(WithStartupCommand)                    [if set]
+       e. AwaitOutput(ready matcher)                  [if WithAfterReadyCommand set]
+       f. Exec(WithAfterReadyCommand)                 [if set]
   3. Hook: AfterRun
 ```
 
@@ -114,6 +118,69 @@ Docker daemon. A non-zero exit code from either lifecycle command fails `Run`
 (fail-fast on broken init). Lifecycle-command timeouts follow the caller's
 `Run` context; a bounded per-command timeout is applied when the context has no
 deadline.
+
+### Copying files into the container (`WithFiles`)
+
+`WithFiles(files ...File)` is a `LifecycleOption` that seeds files into the
+container filesystem during `Run`, immediately after the container is created
+(and the network attached) and **before it starts** — and therefore before
+`WithStartupCommand` runs. Because the copy happens before start, both the
+image's own entrypoint/CMD and `WithStartupCommand` can consume the files (e.g.
+Postgres init scripts dropped into `/docker-entrypoint-initdb.d/`). It works in
+both the standalone and Group flows, since Group delegates to `container.Run`.
+
+```go
+type File struct {
+    Content     io.Reader   // streamed file content; Size bytes must be available
+    Size        int64       // exact byte length of Content (required)
+    Mode        os.FileMode // permission bits; 0 defaults to 0644
+    Destination string      // absolute path inside the container, e.g. "/etc/app.conf"
+    Uid         int         // numeric owner uid; 0 (default) = root
+    Gid         int         // numeric owner gid; 0 (default) = root
+}
+
+// FileFromBytes builds a File from an in-memory byte slice (sets Size to
+// len(data)); use File directly with an io.Reader + Size for large files.
+func FileFromBytes(destination string, data []byte, mode os.FileMode, uid, gid int) File
+```
+
+Files are packed into a single uncompressed tar (standard-library
+`archive/tar`) and pushed with the Docker SDK `CopyToContainer` at the
+container root (`dstPath = "/"`). Content is **streamed** via `io.CopyN` from
+each file's `io.Reader` into the tar (built over an `io.Pipe`), so files larger
+than available RAM can be copied without buffering them in memory; `Size` must
+equal the exact number of bytes the reader will yield and is written into the
+tar header. Parent directories of each `Destination` are auto-created by
+emitting explicit directory entries in the tar, so nested paths and
+previously-missing directories need no prior setup.
+
+Behavior and edge cases:
+
+- **Empty file list** is a no-op (no copy, no error).
+- **`Destination`** must be absolute (start with `/`) and non-empty; paths
+  containing `..` are rejected to prevent traversal outside the intended
+  target (defence-in-depth).
+- **Duplicate destinations** resolve to *last-wins*: `files` are processed in
+  order, so a later entry overwrites an earlier one at the same path.
+- **Default mode** is `0644`; pass `Mode` explicitly (e.g. `0600`) for files
+  that hold secrets.
+- **Owner** defaults to `root:root` (`Uid:0`, `Gid:0`). Set `Uid`/`Gid` to
+  chown the file inside the container; Docker honours the numeric ids. Only the
+  file itself is chowned — the auto-created parent directories remain
+  `root:root` (`0755`). Backward compatible: existing calls that omit
+  `Uid`/`Gid` behave exactly as before.
+- **Errors** during copy (invalid destination, tar/CopyToContainer failure) are
+  wrapped with `pkg/errors` and fail `Run` (fail-fast), consistent with the
+  other lifecycle steps.
+- **Large files** are supported without buffering: pass an `io.Reader` +
+  `Size` directly (content is streamed into the tar); use `FileFromBytes` for
+  small configuration/seed content. For very large payloads a bind mount
+  (`WithBinds`) is still a lighter-weight alternative.
+
+The `Container` interface is **not** extended: file seeding is a
+configuration-time concern, expressed as an option like `WithBinds`, rather
+than a runtime method. This keeps the interface stable for existing application
+packages and mock implementers.
 
 ### Application layer (`applications/`)
 
