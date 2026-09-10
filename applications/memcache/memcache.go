@@ -3,6 +3,7 @@ package memcache
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	memcacheCli "github.com/bradfitz/gomemcache/memcache"
@@ -28,6 +29,68 @@ func New(ctx context.Context) (Memcache, error) {
 
 func NewWithImage(ctx context.Context, image string) (Memcache, error) {
 	c, err := docker.NewContainer(
+		"memcache",
+		image,
+		[]string{},
+		docker.NewEnvironment(),
+		docker.NewPortBindings().
+			PortDNAT(docker.ProtoTCP, 11211),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	if err := c.Run(ctx); err != nil {
+		return nil, err
+	}
+
+	hp, err := c.URL(docker.ProtoTCP, 11211)
+	if err != nil {
+		return nil, err
+	}
+	cli := memcacheCli.New(fmt.Sprintf("%s:%d", hp.Host, hp.Port))
+	defer func() { _ = cli.Close() }()
+
+	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			if err := cli.Ping(); err != nil {
+				log.Tracef("memcached is not ready yet, let's wait a bit ...")
+				continue
+			}
+
+			started = true
+			return &memcache{
+				c: c,
+			}, nil
+		}
+	}
+
+	return nil, errors.New("memcached did not become ready in time")
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (Memcache, error) {
+	return NewWithImageT(t, ctx, images.Memcache)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (Memcache, error) {
+	c, err := docker.NewContainerWithT(
+		t,
 		"memcache",
 		image,
 		[]string{},

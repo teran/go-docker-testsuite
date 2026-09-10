@@ -3,6 +3,7 @@ package minio
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/teran/go-docker-testsuite"
@@ -34,6 +35,64 @@ func New(ctx context.Context) (Minio, error) {
 func NewWithImage(ctx context.Context, image string) (Minio, error) {
 	c, err := docker.
 		NewContainer(
+			"minio",
+			image,
+			[]string{
+				"server",
+				"/data",
+				"--address=:9000",
+				"--console-address=:9001",
+			},
+			docker.NewEnvironment().
+				StringVar("MINIO_ACCESS_KEY", MinioAccessKey).
+				StringVar("MINIO_SECRET_KEY", MinioAccessKeySecret),
+			docker.NewPortBindings().
+				PortDNAT(docker.ProtoTCP, tcpPortS3).
+				PortDNAT(docker.ProtoTCP, tcpPortConsole),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher(
+		"The standard parity is set to 0. This can lead to data loss.",
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &minio{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (Minio, error) {
+	return NewWithImageT(t, ctx, images.Minio)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (Minio, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
 			"minio",
 			image,
 			[]string{

@@ -4,6 +4,7 @@ package opensearch
 import (
 	"context"
 	"net/http"
+	"testing"
 	"time"
 
 	opensearchclient "github.com/opensearch-project/opensearch-go/v4"
@@ -36,6 +37,59 @@ func New(ctx context.Context) (OpenSearch, error) {
 func NewWithImage(ctx context.Context, image string) (OpenSearch, error) {
 	c, err := docker.
 		NewContainer(
+			"opensearch",
+			image,
+			nil,
+			docker.NewEnvironment().
+				StringVar("discovery.type", "single-node").
+				StringVar("DISABLE_SECURITY_PLUGIN", "true"),
+			docker.
+				NewPortBindings().
+				PortDNAT(docker.ProtoTCP, httpPort),
+		)
+	if err != nil {
+		return nil, err
+	}
+
+	started := false
+	defer func() {
+		if !started {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_ = c.Close(cleanupCtx)
+		}
+	}()
+
+	err = c.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// OpenSearch's startup log line differs between versions (and the node
+	// can report started before the HTTP layer is listening), so wait for the
+	// HTTP endpoint to respond instead of matching a specific log message.
+	if err := waitForHTTPReady(ctx, c, httpPort); err != nil {
+		return nil, err
+	}
+
+	started = true
+	return &opensearch{
+		c: c,
+	}, nil
+}
+
+// NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
+// the test and cleaned up automatically via t.Cleanup.
+func NewWithT(t *testing.T, ctx context.Context) (OpenSearch, error) {
+	return NewWithImageT(t, ctx, images.OpenSearch)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (OpenSearch, error) {
+	c, err := docker.
+		NewContainerWithT(
+			t,
 			"opensearch",
 			image,
 			nil,
