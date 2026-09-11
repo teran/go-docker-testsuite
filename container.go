@@ -22,8 +22,6 @@ import (
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/teran/go-docker-testsuite/internal/ptr"
 )
 
 const (
@@ -829,7 +827,7 @@ func (c *container) Close(ctx context.Context) error {
 	}
 
 	err := c.cli.ContainerStop(ctx, c.containerID, dockerContainer.StopOptions{
-		Timeout: ptr.Ptr[int](int(timeout / time.Second)),
+		Timeout: new(int(timeout / time.Second)),
 	})
 	if err != nil {
 		return err
