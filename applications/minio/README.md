@@ -17,8 +17,14 @@ When no explicit image is given, `New` uses the default from
 [`images.Minio`](../../images/images.go):
 
 ```text
-index.docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z
+index.docker.io/pgsty/silo:RELEASE.2026-09-03T13-18-01Z
 ```
+
+The default image is **PGSTY Silo**, a community-maintained fork of MinIO
+([`pgsty/silo`](https://github.com/pgsty/silo)) that keeps publishing multi-arch
+images and security fixes after upstream MinIO stopped distributing community
+Docker images. It is wire- and on-disk compatible with MinIO, so the
+`minio-go` client works unchanged.
 
 Pass a custom image with `minio.NewWithImage(ctx, image)`.
 
@@ -71,7 +77,8 @@ func main() {
 The wrapper exposes `GetEndpointURL()` (S3 endpoint as `host:port`) and
 `GetConsoleURL()` (web console). The default credentials are exported as
 `minio.MinioAccessKey` and `minio.MinioAccessKeySecret` (both
-`minioadmin`).
+`minioadmin`); they are injected into the container as the
+`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` environment variables.
 
 ## Running the tests
 

@@ -44,8 +44,8 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 				"--console-address=:9001",
 			},
 			docker.NewEnvironment().
-				StringVar("MINIO_ACCESS_KEY", MinioAccessKey).
-				StringVar("MINIO_SECRET_KEY", MinioAccessKeySecret),
+				StringVar("MINIO_ROOT_USER", MinioAccessKey).
+				StringVar("MINIO_ROOT_PASSWORD", MinioAccessKeySecret),
 			docker.NewPortBindings().
 				PortDNAT(docker.ProtoTCP, tcpPortS3).
 				PortDNAT(docker.ProtoTCP, tcpPortConsole),
@@ -69,7 +69,7 @@ func NewWithImage(ctx context.Context, image string) (Minio, error) {
 	}
 
 	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher(
-		"The standard parity is set to 0. This can lead to data loss.",
+		"API: http://",
 	))
 	if err != nil {
 		return nil, err
@@ -102,8 +102,8 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (Minio, erro
 				"--console-address=:9001",
 			},
 			docker.NewEnvironment().
-				StringVar("MINIO_ACCESS_KEY", MinioAccessKey).
-				StringVar("MINIO_SECRET_KEY", MinioAccessKeySecret),
+				StringVar("MINIO_ROOT_USER", MinioAccessKey).
+				StringVar("MINIO_ROOT_PASSWORD", MinioAccessKeySecret),
 			docker.NewPortBindings().
 				PortDNAT(docker.ProtoTCP, tcpPortS3).
 				PortDNAT(docker.ProtoTCP, tcpPortConsole),
@@ -127,7 +127,7 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (Minio, erro
 	}
 
 	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher(
-		"The standard parity is set to 0. This can lead to data loss.",
+		"API: http://",
 	))
 	if err != nil {
 		return nil, err
