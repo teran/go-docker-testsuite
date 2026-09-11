@@ -10,8 +10,11 @@ const (
 	// Kafka image
 	Kafka = "index.docker.io/apache/kafka:4.0.0"
 
-	// Minio image tag
-	Minio = "index.docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z"
+	// Minio image tag: PGSTY Silo, a community-maintained fork of MinIO that
+	// keeps publishing multi-arch images and security fixes after upstream
+	// MinIO stopped distributing community Docker images (see
+	// https://github.com/pgsty/silo).
+	Minio = "index.docker.io/pgsty/silo:RELEASE.2026-09-03T13-18-01Z"
 
 	// Postgres image tag
 	Postgres = "index.docker.io/library/postgres:16.15"
