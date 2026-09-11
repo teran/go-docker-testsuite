@@ -46,7 +46,8 @@ or object storage — without mocks.
 | `NewGroupT` | `NewGroup` bound to a `*testing.T`, returning a `*TestGroup` |
 | `RunT` | Fail-fast variant of `Run` on `TestContainer`/`TestGroup` — fails the test via `t.Fatal` instead of returning the error |
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
-| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`) |
+| `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`, `WithNetworkMode`, `WithHostNetwork`) |
+| `NetworkMode` / `WithNetworkMode` / `WithHostNetwork` | Container network mode (bridge/host/none) mapping to `HostConfig.NetworkMode`; an additive `ContainerOption` (roadmap #19). `WithNetworkMode(NetworkModeHost)` and `WithHostNetwork()` are equivalent. |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
 | `Application` | Wraps `Container` with lifecycle hooks (`BeforeRun`, `AfterRun`, `BeforeClose`, `AfterClose`) |
 | `Group` | Isolated internal Docker network; runs multiple `Application`s with DNS resolution |
@@ -254,6 +255,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO / Silo (S3) | `github.com/minio/minio-go/v7` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
+| `applications/nginx` | nginx reverse proxy / web server | standard library (`net/http`) |
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |
 | `applications/rabbitmq` | RabbitMQ | standard library (`net/http`, `encoding/json`) |
@@ -325,6 +327,9 @@ Group.Close (per application, in reverse order):
 - **T-bound constructors are additive** — the base `Container` interface and
   `Run(ctx)` are unchanged; binding uses `*testing.T` (safe for concurrent use)
   and routes lifecycle events to `t.Logf`.
+- **Host networking** — `WithNetworkMode(NetworkModeHost)` (e.g. nginx
+  `NewReverseProxyHost`) means no Docker port mappings apply, so `Addr` must be
+  derived from the container network mode rather than from a port mapping.
 
 ## CI
 

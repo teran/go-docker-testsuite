@@ -16,6 +16,9 @@ const (
 	// https://github.com/pgsty/silo).
 	Minio = "index.docker.io/pgsty/silo:RELEASE.2026-09-03T13-18-01Z"
 
+	// Nginx image tag (Alpine, stable mainline minor pin)
+	Nginx = "index.docker.io/library/nginx:1.27-alpine"
+
 	// Postgres image tag
 	Postgres = "index.docker.io/library/postgres:16.15"
 

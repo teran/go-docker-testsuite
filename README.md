@@ -66,6 +66,7 @@ Here's the full list:
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |
 | [MinIO (Silo fork)](https://silo.pgsty.com/)               | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
 | [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)           | MySQL-compatible databases           |
+| [Nginx](https://nginx.org/)                                | [`applications/nginx`](./applications/nginx)           | nginx reverse proxy / web server     |
 | [OpenSearch](https://opensearch.org/)                      | [`applications/opensearch`](./applications/opensearch) | OpenSearch with opensearch-go client |
 | [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres)     | PostgreSQL with pgx client           |
 | [RabbitMQ](https://www.rabbitmq.com/)                      | [`applications/rabbitmq`](./applications/rabbitmq)     | RabbitMQ (AMQP + Management API)     |
