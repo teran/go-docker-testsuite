@@ -252,7 +252,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | `applications/k3s` | K3s (Kubernetes) | `k8s.io/client-go` |
 | `applications/kafka` | Apache Kafka | `github.com/IBM/sarama` |
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
-| `applications/minio` | MinIO (S3) | `github.com/minio/minio-go/v7` |
+| `applications/minio` | MinIO / Silo (S3) | `github.com/minio/minio-go/v7` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |

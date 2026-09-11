@@ -64,7 +64,7 @@ Here's the full list:
 | [K3s](https://k3s.io/)                                     | [`applications/k3s`](./applications/k3s)               | K3s (Kubernetes) with client-go      |
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)           | Apache Kafka with Sarama client      |
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |
-| [MinIO](https://min.io/)                                   | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
+| [MinIO (Silo fork)](https://silo.pgsty.com/)               | [`applications/minio`](./applications/minio)           | S3-compatible object storage         |
 | [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)           | MySQL-compatible databases           |
 | [OpenSearch](https://opensearch.org/)                      | [`applications/opensearch`](./applications/opensearch) | OpenSearch with opensearch-go client |
 | [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres)     | PostgreSQL with pgx client           |
