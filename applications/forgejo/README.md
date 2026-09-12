@@ -14,6 +14,23 @@ No Forgejo/Gitea SDK dependency is embedded: this wrapper is deliberately
 stdlib-only, and the caller brings their own HTTP/API client (e.g. to create
 repositories, manage users, etc.).
 
+## Options
+
+Constructors accept optional `Option`s (variadic):
+
+- `forgejo.WithDisableRegistration(true)` — sets
+  `FORGEJO__service__DISABLE_REGISTRATION`, disabling self-registration of new
+  users. Registration is left enabled by default; it is a policy decision of
+  the consumer and is opt-in.
+
+For example:
+
+```go
+app, err := forgejo.New(ctx, "codeberg.org/forgejo/forgejo:16",
+    forgejo.WithDisableRegistration(true),
+)
+```
+
 ## Tested versions
 
 These live as versioned integration tests under
