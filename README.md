@@ -61,6 +61,7 @@ Here's the full list:
 | Application                                                | Package                                                | Description                          |
 |------------------------------------------------------------|--------------------------------------------------------|--------------------------------------|
 | [Ceph (RGW)](https://ceph.io/)                             | [`applications/ceph`](./applications/ceph)             | Ceph RGW (S3) with AWS SDK v2 client |
+| [Forgejo](https://forgejo.org/)                            | [`applications/forgejo`](./applications/forgejo)       | Forgejo (git hosting) with SQLite    |
 | [K3s](https://k3s.io/)                                     | [`applications/k3s`](./applications/k3s)               | K3s (Kubernetes) with client-go      |
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)           | Apache Kafka with Sarama client      |
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)     | Memcached with gomemcache client     |

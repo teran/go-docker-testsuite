@@ -250,6 +250,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | Package | Service | Client library |
 | --------- | --------- | ---------------- |
 | `applications/ceph` | Ceph RGW (S3) | `github.com/aws/aws-sdk-go-v2/service/s3` |
+| `applications/forgejo` | Forgejo (git hosting) | standard library (`net/http`) |
 | `applications/k3s` | K3s (Kubernetes) | `k8s.io/client-go` |
 | `applications/kafka` | Apache Kafka | `github.com/IBM/sarama` |
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
