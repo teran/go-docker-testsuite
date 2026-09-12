@@ -19,12 +19,15 @@ const (
 )
 
 // Forgejo exposes the minimal information a caller needs to talk to a running
-// Forgejo instance: its web URL and the admin credentials created during the
-// setup. The caller brings their own HTTP/API client — no Forgejo SDK
-// dependency is embedded here (a deliberate decision to keep this stdlib-only).
+// Forgejo instance: its web URL, its SSH endpoint, and the admin credentials
+// created during the setup. The caller brings their own HTTP/API client — no
+// Forgejo SDK dependency is embedded here (a deliberate decision to keep this
+// stdlib-only).
 type Forgejo interface {
 	URL() (string, error)
 	MustURL() string
+	SSHAddr() (string, error)
+	MustSSHAddr() string
 	AdminUsername() string
 	AdminPassword() string
 	Close(ctx context.Context) error
@@ -101,7 +104,8 @@ func New(ctx context.Context, image string, opts ...Option) (Forgejo, error) {
 		env(cfg),
 		docker.
 			NewPortBindings().
-			PortDNAT(docker.ProtoTCP, 3000),
+			PortDNAT(docker.ProtoTCP, 3000).
+			PortDNAT(docker.ProtoTCP, 22),
 		lifecycleOptions()...,
 	)
 	if err != nil {
@@ -153,7 +157,8 @@ func NewWithT(t *testing.T, ctx context.Context, image string, opts ...Option) (
 		env(cfg),
 		docker.
 			NewPortBindings().
-			PortDNAT(docker.ProtoTCP, 3000),
+			PortDNAT(docker.ProtoTCP, 3000).
+			PortDNAT(docker.ProtoTCP, 22),
 		lifecycleOptions()...,
 	)
 	if err != nil {
@@ -229,6 +234,25 @@ func (f *forgejo) URL() (string, error) {
 
 func (f *forgejo) MustURL() string {
 	u, err := f.URL()
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+// SSHAddr returns the external `host:port` of the Forgejo SSH endpoint (the
+// container's internal SSH port 22), for use by an SSH/git client.
+func (f *forgejo) SSHAddr() (string, error) {
+	u, err := f.c.URL(docker.ProtoTCP, 22)
+	if err != nil {
+		return "", err
+	}
+
+	return u.String(), nil
+}
+
+func (f *forgejo) MustSSHAddr() string {
+	u, err := f.SSHAddr()
 	if err != nil {
 		panic(err)
 	}

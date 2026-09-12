@@ -6,9 +6,11 @@ web server to come up, and programmatically passes the initial setup/onboarding
 screen by creating the admin account — so the instance is immediately usable
 without manual configuration.
 
-The client interface provides `URL()` / `MustURL()` (the web UI/HTTP endpoint),
-`AdminUsername()` / `AdminPassword()` (the credentials of the admin user created
-during setup), and `Close(ctx)`.
+The client interface provides `URL()` / `MustURL()` (the web UI/HTTP endpoint,
+each resolved to its own random host port), `SSHAddr()` / `MustSSHAddr()` (the
+`host:port` of the SSH endpoint for git-over-SSH), `AdminUsername()` /
+`AdminPassword()` (the credentials of the admin user created during setup), and
+`Close(ctx)`.
 
 No Forgejo/Gitea SDK dependency is embedded: this wrapper is deliberately
 stdlib-only, and the caller brings their own HTTP/API client (e.g. to create
@@ -36,9 +38,9 @@ app, err := forgejo.New(ctx, "codeberg.org/forgejo/forgejo:16",
 These live as versioned integration tests under
 `applications/forgejo/versions/`, one directory per version:
 
-| Version | Image                                |
-|---------|--------------------------------------|
-| 16.0.4  | `codeberg.org/forgejo/forgejo:16.0.4` |
+| Version | Image                                  |
+|---------|----------------------------------------|
+| 16.0.4  | `codeberg.org/forgejo/forgejo:16.0.4`  |
 
 ## Default image
 
