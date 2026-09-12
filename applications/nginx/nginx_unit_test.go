@@ -144,9 +144,10 @@ func TestMustAddrPanic(t *testing.T) {
 	})
 }
 
-// TestWaitForHTTPReadyTimeout verifies that waitForHTTPReady returns the
-// context error when the listener never becomes reachable before the context
-// is cancelled. It uses a host-network nginxImpl bound to an unused port.
+// TestWaitForHTTPReadyTimeout verifies that waitForHTTPReady (via wait.Wait)
+// returns a wrapped context error when the listener never becomes reachable
+// before the context is cancelled. It uses a host-network nginxImpl bound to
+// an unused port, so the strategy must bail out fast instead of spinning.
 func TestWaitForHTTPReadyTimeout(t *testing.T) {
 	r := require.New(t)
 
@@ -168,7 +169,7 @@ func TestWaitForHTTPReadyTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // already cancelled -> waitForHTTPReady must bail out fast
 
-	err = waitForHTTPReady(ctx, n)
+	err = waitForHTTPReady(ctx, &fakeContainer{}, n)
 	r.Error(err)
-	r.Equal(context.Canceled, err)
+	r.True(errors.Is(err, context.Canceled))
 }

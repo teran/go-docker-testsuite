@@ -9,10 +9,10 @@ import (
 
 	opensearchclient "github.com/opensearch-project/opensearch-go/v4"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
+	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
 const (
@@ -68,8 +68,10 @@ func NewWithImage(ctx context.Context, image string) (OpenSearch, error) {
 	// OpenSearch's startup log line differs between versions (and the node
 	// can report started before the HTTP layer is listening), so wait for the
 	// HTTP endpoint to respond instead of matching a specific log message.
+	// Any non-5xx response (matching the previous readiness loop) proves the
+	// HTTP layer is up.
 	if err := waitForHTTPReady(ctx, c, httpPort); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error waiting for OpenSearch to become ready")
 	}
 
 	started = true
@@ -121,8 +123,10 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (OpenSearch,
 	// OpenSearch's startup log line differs between versions (and the node
 	// can report started before the HTTP layer is listening), so wait for the
 	// HTTP endpoint to respond instead of matching a specific log message.
+	// Any non-5xx response (matching the previous readiness loop) proves the
+	// HTTP layer is up.
 	if err := waitForHTTPReady(ctx, c, httpPort); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error waiting for OpenSearch to become ready")
 	}
 
 	started = true
@@ -131,8 +135,15 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (OpenSearch,
 	}, nil
 }
 
-// waitForHTTPReady polls the container's HTTP endpoint until it returns a
-// non-5xx status or the context expires.
+// waitForHTTPReady waits until the container's HTTP endpoint returns any
+// non-5xx status (which proves the HTTP layer is up). It mirrors the previous
+// hand-rolled readiness loop exactly: a transport error (e.g. an EOF while
+// OpenSearch accepts the connection but has not started serving yet) or a 5xx
+// status is treated as "not ready yet" and retried until the context expires.
+//
+// It uses an inline wait.Strategy rather than wait.ForHTTPGet because that
+// strategy classifies any non-ECONNREFUSED transport error (such as EOF) as
+// fatal, whereas the historical behaviour is to keep retrying.
 func waitForHTTPReady(ctx context.Context, c docker.Container, port uint16) error {
 	hp, err := c.URL(docker.ProtoTCP, port)
 	if err != nil {
@@ -140,25 +151,17 @@ func waitForHTTPReady(ctx context.Context, c docker.Container, port uint16) erro
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	for {
+	return wait.Wait(ctx, c, func(ctx context.Context, _ wait.Target) (bool, error) {
 		resp, err := client.Get("http://" + hp.String())
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode < 500 {
-				log.WithFields(log.Fields{
-					"status": resp.StatusCode,
-					"addr":   hp.String(),
-				}).Trace("OpenSearch HTTP endpoint is ready")
-				return nil
-			}
+		if err != nil {
+			return false, nil // transport error (incl. EOF) — not ready yet, retry
 		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(1 * time.Second):
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode >= 500 {
+			return false, nil // server up but not ready — retry
 		}
-	}
+		return true, nil // non-5xx ⇒ HTTP layer is up
+	})
 }
 
 func (r *opensearch) Addr() (string, error) {

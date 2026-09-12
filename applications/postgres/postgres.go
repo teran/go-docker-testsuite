@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
+	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
 const maxDBNameLen = 63
@@ -101,11 +102,6 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 		return nil, err
 	}
 
-	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("database system is ready to accept connections"))
-	if err != nil {
-		return nil, err
-	}
-
 	hp, err := c.URL(docker.ProtoTCP, 5432)
 	if err != nil {
 		return nil, err
@@ -113,20 +109,25 @@ func NewWithImage(ctx context.Context, image string) (PostgreSQL, error) {
 
 	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", hp.String(), "postgres")
 
-	// Wait for PostgreSQL to accept TCP connections with a retry loop
-	// instead of a blind sleep, so startup is fast on fast hosts and
-	// resilient on loaded ones.
-	for i := 0; i < 30; i++ {
-		pgconn, pgErr := pgx.Connect(ctx, dsn)
-		if pgErr == nil {
-			_ = pgconn.Close(ctx)
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
-		}
+	// Wait for PostgreSQL to be ready: the "ready to accept connections" log
+	// line AND the ability to accept a pgx connection. Waiting for an actual
+	// connect makes startup fast on fast hosts and resilient on loaded ones.
+	err = wait.Wait(ctx, c, wait.ForAll(
+		wait.ForLog(docker.NewSubstringMatcher("database system is ready to accept connections")),
+		func(ctx context.Context, _ wait.Target) (bool, error) {
+			pgconn, err := pgx.Connect(ctx, dsn)
+			if err != nil {
+				return false, nil // not ready yet — retry
+			}
+			defer func() { _ = pgconn.Close(ctx) }()
+			if err := pgconn.Ping(ctx); err != nil {
+				return false, nil
+			}
+			return true, nil
+		},
+	))
+	if err != nil {
+		return nil, errors.Wrap(err, "error waiting for PostgreSQL to become ready")
 	}
 
 	started = true
@@ -168,11 +169,6 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (PostgreSQL,
 		return nil, err
 	}
 
-	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("database system is ready to accept connections"))
-	if err != nil {
-		return nil, err
-	}
-
 	hp, err := c.URL(docker.ProtoTCP, 5432)
 	if err != nil {
 		return nil, err
@@ -180,20 +176,25 @@ func NewWithImageT(t *testing.T, ctx context.Context, image string) (PostgreSQL,
 
 	dsn := fmt.Sprintf("postgres://postgres@%s/%s?sslmode=disable", hp.String(), "postgres")
 
-	// Wait for PostgreSQL to accept TCP connections with a retry loop
-	// instead of a blind sleep, so startup is fast on fast hosts and
-	// resilient on loaded ones.
-	for i := 0; i < 30; i++ {
-		pgconn, pgErr := pgx.Connect(ctx, dsn)
-		if pgErr == nil {
-			_ = pgconn.Close(ctx)
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(1 * time.Second):
-		}
+	// Wait for PostgreSQL to be ready: the "ready to accept connections" log
+	// line AND the ability to accept a pgx connection. Waiting for an actual
+	// connect makes startup fast on fast hosts and resilient on loaded ones.
+	err = wait.Wait(ctx, c, wait.ForAll(
+		wait.ForLog(docker.NewSubstringMatcher("database system is ready to accept connections")),
+		func(ctx context.Context, _ wait.Target) (bool, error) {
+			pgconn, err := pgx.Connect(ctx, dsn)
+			if err != nil {
+				return false, nil // not ready yet — retry
+			}
+			defer func() { _ = pgconn.Close(ctx) }()
+			if err := pgconn.Ping(ctx); err != nil {
+				return false, nil
+			}
+			return true, nil
+		},
+	))
+	if err != nil {
+		return nil, errors.Wrap(err, "error waiting for PostgreSQL to become ready")
 	}
 
 	started = true

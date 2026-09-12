@@ -34,6 +34,9 @@ Go tests.
   (`WithMemoryLimit`, `WithCPUs`, `WithPidsLimit`, ...)
 - **Matchers** — await container logs with substring, exact,
   or regexp matchers before proceeding
+- **Wait strategies** — composable readiness probes beyond log matchers:
+  `ForLog`, `ForHTTPGet`, `ForCommand`, `ForTCPConnection`, combined with
+  `ForAll` / `ForAny` / `ForAtLeast` (`github.com/teran/go-docker-testsuite/wait`)
 - **Environment builder** — fluent DSL to declare typed environment variables
 - **Port bindings** — DNAT port mapping with random or one-to-one port allocation
 - **IMAGE_PREFIX** — optional `IMAGE_PREFIX` env var to route images through a proxy/mirror
@@ -56,7 +59,8 @@ go get github.com/teran/go-docker-testsuite
 
 The test suite provides ready-to-use wrappers (each returns a typed
 client interface and handles startup, health checks, and cleanup).
-Here's the full list:
+Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL) use the
+`wait` package internally to poll for readiness. Here's the full list:
 
 | Application                                                  | Package                                                  | Description                                        |
 |--------------------------------------------------------------|----------------------------------------------------------|----------------------------------------------------|
