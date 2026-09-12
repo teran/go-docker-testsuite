@@ -45,4 +45,9 @@ const (
 	// github.com/teran/ceph-container. Images are tagged v<version> for the
 	// squid and tentacle release trains.
 	Ceph = "ghcr.io/teran/ceph-container/ceph:v20.2.4"
+
+	// Forgejo image tag (rootful, pinned to the 16 release line). Forgejo is
+	// a soft fork of Gitea; the image runs the full Forgejo server backed by
+	// SQLite for lightweight integration testing.
+	Forgejo = "codeberg.org/forgejo/forgejo:16"
 )
