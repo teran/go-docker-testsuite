@@ -15,17 +15,8 @@ The versioned integration tests live under
 
 | Version | Image                                          |
 |---------|------------------------------------------------|
-| 19.2.0  | `ghcr.io/teran/ceph-container/ceph:v19.2.0`    |
-| 19.2.1  | `ghcr.io/teran/ceph-container/ceph:v19.2.1`    |
-| 19.2.2  | `ghcr.io/teran/ceph-container/ceph:v19.2.2`    |
 | 19.2.3  | `ghcr.io/teran/ceph-container/ceph:v19.2.3`    |
-| 19.2.4  | `ghcr.io/teran/ceph-container/ceph:v19.2.4`    |
-| 19.2.5  | `ghcr.io/teran/ceph-container/ceph:v19.2.5`    |
 | 19.2.6  | `ghcr.io/teran/ceph-container/ceph:v19.2.6`    |
-| 20.2.0  | `ghcr.io/teran/ceph-container/ceph:v20.2.0`    |
-| 20.2.1  | `ghcr.io/teran/ceph-container/ceph:v20.2.1`    |
-| 20.2.2  | `ghcr.io/teran/ceph-container/ceph:v20.2.2`    |
-| 20.2.3  | `ghcr.io/teran/ceph-container/ceph:v20.2.3`    |
 | 20.2.4  | `ghcr.io/teran/ceph-container/ceph:v20.2.4`    |
 
 These images are published multi-arch (amd64 + arm64) as
