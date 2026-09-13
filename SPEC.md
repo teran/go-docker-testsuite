@@ -245,7 +245,11 @@ concurrent use.
 
 ### Application layer (`applications/`)
 
-Each sub-package wraps a specific service and returns a typed client:
+Each sub-package wraps a specific service and returns a typed client. Most
+wrappers manage a single container; `applications/netbox` is the first
+**multi-container `Group`-based** wrapper — because NetBox requires external
+PostgreSQL and Redis, it spins up three containers (netbox + postgres + redis)
+on a shared internal network, publishing only the NetBox web port:
 
 | Package | Service | Client library |
 | --------- | --------- | ---------------- |
@@ -256,6 +260,7 @@ Each sub-package wraps a specific service and returns a typed client:
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO / Silo (S3) | `github.com/minio/minio-go/v7` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
+| `applications/netbox` | NetBox (DCIM/IPAM) | standard library (`net/http`) |
 | `applications/nginx` | nginx reverse proxy / web server | standard library (`net/http`) |
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |
