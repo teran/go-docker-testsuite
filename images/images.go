@@ -50,4 +50,21 @@ const (
 	// a soft fork of Gitea; the image runs the full Forgejo server backed by
 	// SQLite for lightweight integration testing.
 	Forgejo = "codeberg.org/forgejo/forgejo:16"
+
+	// NetBox image tag: NetBox v4.6 with netbox-docker 5.0.1 support files
+	// (release build; netbox-docker tag scheme v<netbox>-<netboxdocker>).
+	// NetBox requires external PostgreSQL and Redis — the netbox wrapper spins
+	// both up.
+	NetBox = "index.docker.io/netboxcommunity/netbox:v4.6-5.0.1"
+
+	// NetBoxPostgres is the PostgreSQL image backing NetBox. Pinned to a stable
+	// 16.x release, which is within the range supported by NetBox v4.6 (the
+	// netbox-docker compose floats to a newer major, so we pin a known-good
+	// stable minor for reproducible tests).
+	NetBoxPostgres = "index.docker.io/library/postgres:16.15"
+
+	// NetBoxRedis is the Redis image backing NetBox (single instance serving
+	// both the task queue and the cache). Pinned to a stable 7.4-alpine build,
+	// which is within the range supported by NetBox v4.6.
+	NetBoxRedis = "index.docker.io/library/redis:7.4-alpine"
 )
