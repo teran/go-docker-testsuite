@@ -1,12 +1,15 @@
 package forgejo
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	docker "github.com/teran/go-docker-testsuite"
 )
 
@@ -135,6 +138,10 @@ func New(ctx context.Context, image string, opts ...Option) (Forgejo, error) {
 		return nil, err
 	}
 
+	if err := waitForSSHReady(ctx, c); err != nil {
+		return nil, err
+	}
+
 	started = true
 	return &forgejo{
 		c: c,
@@ -188,6 +195,10 @@ func NewWithT(t *testing.T, ctx context.Context, image string, opts ...Option) (
 		return nil, err
 	}
 
+	if err := waitForSSHReady(ctx, c); err != nil {
+		return nil, err
+	}
+
 	started = true
 	return &forgejo{
 		c: c,
@@ -221,6 +232,63 @@ func createAdminUser(ctx context.Context, c docker.Container) error {
 	}
 
 	return nil
+}
+
+// waitForSSHReady blocks until Forgejo's built-in SSH server (port 22) accepts
+// a TCP connection and speaks the SSH protocol. Forgejo brings up its web
+// listener slightly before its SSH listener, so awaiting the web banner alone
+// is not enough to guarantee SSH is ready — callers that dial SSH immediately
+// would intermittently hit a connection-refused. The probe reads the SSH banner
+// so a bare-listen-but-not-ready socket is not mistaken for a ready one.
+func waitForSSHReady(ctx context.Context, c docker.Container) error {
+	u, err := c.URL(docker.ProtoTCP, 22)
+	if err != nil {
+		return errors.Wrap(err, "forgejo ssh not ready")
+	}
+
+	addr := u.String()
+	log.WithField("addr", addr).Trace("waiting for forgejo ssh readiness")
+
+	const (
+		dialTimeout = 2 * time.Second
+		retry       = 1 * time.Second
+		budget      = 60 * time.Second
+	)
+
+	deadline := time.Now().Add(budget)
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return errors.Wrap(lastErr, "forgejo ssh not ready")
+			}
+			return errors.Wrap(ctx.Err(), "forgejo ssh not ready")
+		default:
+		}
+
+		conn, err := net.DialTimeout("tcp", addr, dialTimeout)
+		if err == nil {
+			_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+			_, readErr := bufio.NewReader(conn).ReadString('\n')
+			_ = conn.Close()
+			if readErr == nil {
+				return nil
+			}
+			lastErr = readErr
+		} else {
+			lastErr = err
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "forgejo ssh not ready")
+		case <-time.After(retry):
+		}
+	}
+
+	return errors.Wrap(lastErr, "forgejo ssh not ready")
 }
 
 func (f *forgejo) URL() (string, error) {
