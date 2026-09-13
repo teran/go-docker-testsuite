@@ -13,10 +13,13 @@ import (
 	"github.com/teran/go-docker-testsuite/applications/netbox"
 )
 
-// setupTimeout bounds a single NetBox boot. The first start runs ~200 database
-// migrations against a fresh PostgreSQL, which can take several minutes, so each
-// test gets its own generous budget rather than sharing one suite-wide deadline.
+// setupTimeout bounds the single NetBox boot performed in SetupSuite. The
+// first start runs ~200 database migrations against a fresh PostgreSQL, which
+// can take several minutes, so the whole suite shares one generous budget.
 const setupTimeout = 12 * time.Minute
+
+// clientTimeout bounds each test's own, isolated HTTP client.
+const clientTimeout = 30 * time.Second
 
 func init() {
 	log.SetLevel(log.TraceLevel)
@@ -38,9 +41,18 @@ func New(ctx context.Context, image string) *NetBoxTestSuite {
 	}
 }
 
+// client returns a fresh, isolated HTTP client for a single test, so test
+// methods sharing the one NetBox instance do not share mutable request state.
+func (s *NetBoxTestSuite) client() *http.Client {
+	return &http.Client{Timeout: clientTimeout}
+}
+
 // TestWeb verifies the NetBox web UI is served on the root path.
 func (s *NetBoxTestSuite) TestWeb() {
-	resp, err := http.Get(s.app.MustURL())
+	req, err := http.NewRequestWithContext(s.ctx, http.MethodGet, s.app.MustURL(), nil)
+	s.Require().NoError(err)
+
+	resp, err := s.client().Do(req)
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -56,7 +68,7 @@ func (s *NetBoxTestSuite) TestAPI() {
 	s.Require().NoError(err)
 	req.Header.Set("Authorization", "Bearer "+s.app.SuperuserAPIToken())
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client().Do(req)
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -71,7 +83,10 @@ func (s *NetBoxTestSuite) TestAPI() {
 // NetBox responds 403 to unauthenticated requests to the API root (see the
 // wrapper's probeAPI, which relies on the same behaviour).
 func (s *NetBoxTestSuite) TestAPIUnauthorized() {
-	resp, err := http.Get(s.app.MustURL() + "/api/")
+	req, err := http.NewRequestWithContext(s.ctx, http.MethodGet, s.app.MustURL()+"/api/", nil)
+	s.Require().NoError(err)
+
+	resp, err := s.client().Do(req)
 	s.Require().NoError(err)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -87,10 +102,10 @@ func (s *NetBoxTestSuite) TestSuperuserCredentials() {
 	s.Require().NotEmpty(s.app.SuperuserAPIToken())
 }
 
-func (s *NetBoxTestSuite) SetupTest() {
-	// Each test boots a fresh NetBox stack that runs DB migrations on startup.
-	// Derive an independent, generous timeout per test so one test's migration
-	// time doesn't consume a shared suite deadline.
+// SetupSuite boots a single NetBox stack (netbox + postgres + redis) shared by
+// all test methods. The first boot runs DB migrations on startup, so the single
+// generous setupTimeout is applied here rather than per test.
+func (s *NetBoxTestSuite) SetupSuite() {
 	ctx, cancel := context.WithTimeout(s.ctx, setupTimeout)
 	defer cancel()
 
@@ -99,7 +114,8 @@ func (s *NetBoxTestSuite) SetupTest() {
 	s.Require().NoError(err)
 }
 
-func (s *NetBoxTestSuite) TearDownTest() {
+// TearDownSuite closes the shared NetBox stack once all test methods have run.
+func (s *NetBoxTestSuite) TearDownSuite() {
 	if s.app == nil {
 		return
 	}
