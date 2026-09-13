@@ -34,6 +34,9 @@ Go tests.
   (`WithMemoryLimit`, `WithCPUs`, `WithPidsLimit`, ...)
 - **Matchers** — await container logs with substring, exact,
   or regexp matchers before proceeding
+- **Wait strategies** — composable readiness probes beyond log matchers:
+  `ForLog`, `ForHTTPGet`, `ForCommand`, `ForTCPConnection`, combined with
+  `ForAll` / `ForAny` / `ForAtLeast` (`github.com/teran/go-docker-testsuite/wait`)
 - **Environment builder** — fluent DSL to declare typed environment variables
 - **Port bindings** — DNAT port mapping with random or one-to-one port allocation
 - **IMAGE_PREFIX** — optional `IMAGE_PREFIX` env var to route images through a proxy/mirror
@@ -56,7 +59,8 @@ go get github.com/teran/go-docker-testsuite
 
 The test suite provides ready-to-use wrappers (each returns a typed
 client interface and handles startup, health checks, and cleanup).
-Here's the full list:
+Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL) use the
+`wait` package internally to poll for readiness. Here's the full list:
 
 | Application                                                  | Package                                                  | Description                                        |
 |--------------------------------------------------------------|----------------------------------------------------------|----------------------------------------------------|
@@ -155,6 +159,7 @@ import (
     "time"
 
     "github.com/teran/go-docker-testsuite"
+    "github.com/teran/go-docker-testsuite/wait"
 )
 
 func main() {
@@ -165,7 +170,7 @@ func main() {
         c,
         docker.HookFunc(func(ctx context.Context, ht docker.HookType, c docker.Container) error {
             // e.g. wait for readiness before moving on
-            return c.AwaitOutput(ctx, docker.NewSubstringMatcher("ready"))
+            return wait.Wait(ctx, c, wait.ForLog(docker.NewSubstringMatcher("ready")))
         }),
     )
 
@@ -180,6 +185,29 @@ func main() {
     defer g.Close(ctx)
 }
 ```
+
+### Wait strategies
+
+`wait.Wait(ctx, target, strategy, opts...)` polls a container until a
+composable readiness strategy reports ready, returning `nil` on success or a
+wrapped error on timeout or a fatal condition. Both `docker.Container` and
+`docker.TestContainer` satisfy the `wait.Target` interface directly:
+
+```go
+// Wait until the app's HTTP /health endpoint returns 200.
+if err := wait.Wait(ctx, c, wait.ForHTTPGet(8080,
+    wait.WithPath("/health"),
+    wait.WithResponseStatuses(200),
+)); err != nil {
+    panic(err)
+}
+```
+
+Other strategies: `ForLog(matcher)` (log-line match), `ForCommand(cmd)` (run a
+command in-container), and `ForTCPConnection(port)` (pure TCP liveness probe).
+Combine several with `ForAll` / `ForAny` / `ForAtLeast`, and tune polling with
+`WithTimeout` / `WithInterval`. These probes run against real containers, so
+they require a running Docker daemon.
 
 ### `*testing.T` binding & `t.Parallel()`
 

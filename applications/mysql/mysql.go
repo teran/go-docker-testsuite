@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	docker "github.com/teran/go-docker-testsuite"
+	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
 const maxDBNameLen = 64
@@ -101,8 +102,8 @@ func New(ctx context.Context, image string) (MySQL, error) {
 		return nil, errors.Wrap(err, "error compiling regex")
 	}
 
-	if err := c.AwaitOutput(ctx, docker.NewRegexpMatcher(re)); err != nil {
-		return nil, errors.Wrap(err, "error awaiting container output")
+	if err := wait.Wait(ctx, c, wait.ForLog(docker.NewRegexpMatcher(re))); err != nil {
+		return nil, errors.Wrap(err, "error waiting for MySQL to become ready")
 	}
 
 	dsn, err := app.DSN("")
@@ -173,8 +174,8 @@ func NewWithT(t *testing.T, ctx context.Context, image string) (MySQL, error) {
 		return nil, errors.Wrap(err, "error compiling regex")
 	}
 
-	if err := c.AwaitOutput(ctx, docker.NewRegexpMatcher(re)); err != nil {
-		return nil, errors.Wrap(err, "error awaiting container output")
+	if err := wait.Wait(ctx, c, wait.ForLog(docker.NewRegexpMatcher(re))); err != nil {
+		return nil, errors.Wrap(err, "error waiting for MySQL to become ready")
 	}
 
 	dsn, err := app.DSN("")

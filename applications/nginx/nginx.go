@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 
 	docker "github.com/teran/go-docker-testsuite"
 	"github.com/teran/go-docker-testsuite/images"
+	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
 const (
@@ -235,7 +235,7 @@ func startNginx(ctx context.Context, t *testing.T, cfg *nginxConfig, config []by
 	// nginx's startup log line varies across versions and, because the config
 	// is arbitrary, the log surface is unpredictable. Poll the HTTP endpoint
 	// instead: any response proves the listener is accepting connections.
-	if err := waitForHTTPReady(ctx, n); err != nil {
+	if err := waitForHTTPReady(ctx, c, n); err != nil {
 		return nil, err
 	}
 
@@ -243,33 +243,34 @@ func startNginx(ctx context.Context, t *testing.T, cfg *nginxConfig, config []by
 	return n, nil
 }
 
-// waitForHTTPReady polls Addr() until nginx accepts a connection (any valid
-// HTTP response, including 4xx/5xx, proves the listener is up) or the context
-// expires.
-func waitForHTTPReady(ctx context.Context, n *nginxImpl) error {
+// waitForHTTPReady polls nginx's resolved address until it accepts a
+// connection (any valid HTTP response, including 4xx/5xx, proves the listener
+// is up) or the context expires.
+//
+// It uses an inline wait.Strategy that closes over nginx's resolved Addr()
+// (instead of wait.ForHTTPGet, which resolves via t.URL) so that it works in
+// both bridge and host network modes. Under host networking there is no
+// PortDNAT mapping, so t.URL would report the port as not registered and
+// wait.ForHTTPGet would treat it as a fatal error (see wait/DESIGN §9).
+func waitForHTTPReady(ctx context.Context, t wait.Target, n *nginxImpl) error {
 	addr, err := n.Addr()
 	if err != nil {
 		return errors.Wrap(err, "error getting nginx address")
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	for {
-		resp, err := client.Get("http://" + addr)
-		if err == nil {
-			_ = resp.Body.Close()
-			log.WithFields(log.Fields{
-				"status": resp.StatusCode,
-				"addr":   addr,
-			}).Trace("nginx HTTP endpoint is ready")
-			return nil // any response ⇒ nginx is listening
+	return wait.Wait(ctx, t, func(ctx context.Context, _ wait.Target) (bool, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr, nil)
+		if err != nil {
+			return false, errors.Wrap(err, "build request")
 		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(1 * time.Second):
+		resp, err := client.Do(req)
+		if err != nil {
+			return false, nil // any transport error — listener not accepting yet, retry
 		}
-	}
+		_ = resp.Body.Close()
+		return true, nil // any response ⇒ nginx is listening
+	})
 }
 
 func (n *nginxImpl) Addr() (string, error) {

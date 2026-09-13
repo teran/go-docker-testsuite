@@ -191,6 +191,131 @@ configuration-time concern, expressed as an option like `WithBinds`, rather
 than a runtime method. This keeps the interface stable for existing application
 packages and mock implementers.
 
+### Wait strategies (`package wait`)
+
+`wait` (`github.com/teran/go-docker-testsuite/wait`) is a top-level package
+that generalizes the library's log-line readiness model (`AwaitOutput`) into
+composable **wait strategies**: HTTP probes, in-container commands, raw TCP
+connects, and log matching, combined with `ForAll` / `ForAny` / `ForAtLeast`.
+It is the library's **standard, first-class readiness mechanism**: it factors
+out the hand-rolled poll loop that application wrappers used to inline into one
+reusable, testable poller, and application wrappers use it to poll for readiness
+(e.g. `applications/forgejo` calls `wait.Wait(ctx, c, wait.ForLog(...))` and
+`wait.Wait(ctx, c, wait.ForTCPConnection(22))`). It remains **additive** to the
+root `docker` package — the base `Container` interface is unchanged, and `wait`
+only imports `docker` (never the reverse, to avoid an import cycle).
+
+#### Core contract
+
+`wait` is built on three pieces:
+
+```go
+type Target interface {
+    URL(proto docker.Protocol, port uint16) (*docker.HostPort, error)
+    Exec(ctx context.Context, cmd []string) (*docker.ExecResult, error)
+}
+
+type Strategy func(ctx context.Context, t Target) (bool, error)
+
+func Wait(ctx context.Context, t Target, s Strategy, opts ...Option) error
+```
+
+`Target` is the minimal capability a strategy needs. Both `docker.Container`
+and `docker.TestContainer` satisfy it directly — no adapter is required, so a
+`wait.Target` can be handed either. The interface is intentionally minimal: a
+strategy only ever resolves an external address (`URL`) or runs a command
+(`Exec`).
+
+`Strategy` is a **type alias** (not a named type) so one-line inline strategies
+are assignable, while named strategies may still carry a `String()` method for
+poller diagnostics.
+
+The `(bool, error)` return pair is the core contract — get it exactly right:
+
+| `ready` | `err`    | Meaning                                          | `Wait` action                           |
+| ------- | -------- | ------------------------------------------------ | --------------------------------------- |
+| `true`  | `nil`    | Ready now.                                       | return `nil` (success).                 |
+| `false` | `nil`    | Not ready yet — transient condition.             | retry until the deadline/timeout.       |
+| `_`     | `!= nil` | **Fatal** — permanent/misconfiguration/infra.    | stop immediately, return wrapped error. |
+
+A strategy must **never** swallow a fatal condition into `(false, nil)`, which
+would retry forever until the global timeout masks a real bug (e.g. an
+unregistered port). Fatal errors are wrapped with `github.com/pkg/errors`
+before `Wait` returns them.
+
+#### Poller & timeout mechanics
+
+`Wait` owns the single shared poll loop; strategies are pure predicates and
+never loop on their own. Timeouts and intervals are **global to a `Wait` call,
+not per-strategy**.
+
+- `WithInterval(d)` — poll interval, **default 200 ms** (non-positive values
+  are clamped to the default).
+- `WithTimeout(d)` — bounds the whole `Wait` call, **default 60 s**
+  (non-positive values clamped to the default).
+
+Deadline resolution mirrors `lifecycleExecContext`: an explicit `ctx` deadline
+(set by the caller via `context.WithTimeout`/`WithDeadline`) is
+**authoritative** and overrides `WithTimeout`; otherwise `Wait` bounds itself
+with `WithTimeout`. On the not-ready retry path the poller logs at `Trace`
+level, or at `Debug` with the strategy's `String()` description when the
+strategy implements `fmt.Stringer`. On timeout it returns a wrapped
+`errors.Wrapf` error mentioning the deadline.
+
+#### Strategies
+
+Every strategy that addresses a port takes the container's **internal** port
+and resolves it via `t.URL(...)`. The internal port must have been registered
+with `docker.PortDNAT(docker.ProtoTCP, port)`; `t.URL` reporting "port is not
+registered" is treated as **fatal** (a test configuration error), not "not
+ready". Only a refused dial on an otherwise-registered port is "not ready".
+
+- `ForLog(m docker.Matcher, opts ...Option)` — ready when some line of
+  container output matches `m`. Reuses `docker.Matcher` (substring, exact,
+  regexp). Because `Target` deliberately exposes only `URL`/`Exec`, `ForLog`
+  type-asserts `t` to an optional `GetOutput` capability that both
+  `docker.Container` and `docker.TestContainer` satisfy; a target without it is
+  a fatal misuse error.
+- `ForHTTPGet(port uint16, opts ...Option)` — ready when an HTTP request to the
+  container's internal port returns an accepted status (default any `2xx`) and,
+  if set, a body containing a substring. `connection refused` (server not
+  listening yet) and unaccepted statuses are transient retries; an invalid URL
+  or a TLS handshake failure is **fatal**. Options: `WithPath` (default `/`),
+  `WithMethod` (default `GET`), `WithResponseStatuses(codes...)` (overrides the
+  default 2xx set), `WithTLS(bool)` (https scheme, trusting self-signed test
+  certs), `WithBodyContains(substr)`.
+- `ForCommand(cmd []string, opts ...Option)` — ready when running `cmd` inside
+  the container exits with the expected code (default `0`). The root package's
+  `Exec` reports a non-zero exit code in the result, not as an error; only an
+  infrastructure failure (create/attach/IO) is treated as **fatal**. Option:
+  `WithExitCode(code)`.
+- `ForTCPConnection(port uint16, opts ...Option)` — ready when a TCP connection
+  to the internal port can be established (and is immediately closed). This is
+  a pure liveness probe: it proves the listener accepts connections but says
+  nothing about application readiness. A refused/unreachable connect is a
+  transient retry; `t.URL` reporting the port unregistered is fatal. **UDP is
+  not supported** — there is no connection acknowledgement, so a connect-style
+  probe is meaningless.
+
+#### Combinators
+
+Combinators take `...Strategy` and return a single `Strategy`, running their
+sub-strategies **concurrently** per poll via `golang.org/x/sync/errgroup`
+(already a direct dependency — no new dependencies).
+
+- `ForAtLeast(x, ss...)` — ready when at least `x` of the sub-strategies are
+  ready. `x <= 0` is vacuous success (`(true, nil)`); `x > len(ss)` can never
+  be satisfied and times out. A sub-strategy returning a fatal error cancels
+  the group and fails the whole poll.
+- `ForAll(ss...)` — `= ForAtLeast(len(ss), ...)`; ready when all sub-strategies
+  are ready. An empty list is immediately ready (vacuous).
+- `ForAny(ss...)` — `= ForAtLeast(1, ...)`; ready when at least one
+  sub-strategy is ready. An empty list is never satisfiable and **always times
+  out**.
+
+The combinators are still predicates: `Wait` re-polls them (re-spawning the
+group) every interval until ready or the deadline.
+
 ### Testing.T binding
 
 `TestContainer` and `TestGroup` are **decorators** that tie a container or
@@ -326,6 +451,10 @@ Group.Close (per application, in reverse order):
 ## Conventions
 
 - **No mocks in tests** — real Docker containers only (skippable without Docker).
+- **Wait strategies are the standard readiness mechanism** — `wait.Wait` with
+  composable strategies (`ForLog`, `ForHTTPGet`, `ForCommand`,
+  `ForTCPConnection`, combined with `ForAll` / `ForAny` / `ForAtLeast`) is how
+  application wrappers poll for readiness.
 - **Testable Examples** (`Example*` functions) in every application package.
 - **Versioned integration tests** live under `applications/*/versions/`.
 - **Error wrapping** uses `github.com/pkg/errors` consistently.

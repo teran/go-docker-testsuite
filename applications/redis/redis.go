@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/teran/go-docker-testsuite"
+	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
 type Redis interface {
@@ -47,9 +49,9 @@ func New(ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
-	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("* Ready to accept connections"))
+	err = wait.Wait(ctx, c, wait.ForLog(docker.NewSubstringMatcher("* Ready to accept connections")))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error waiting for Redis to become ready")
 	}
 
 	started = true
@@ -90,9 +92,9 @@ func NewWithT(t *testing.T, ctx context.Context, image string) (Redis, error) {
 		return nil, err
 	}
 
-	err = c.AwaitOutput(ctx, docker.NewSubstringMatcher("* Ready to accept connections"))
+	err = wait.Wait(ctx, c, wait.ForLog(docker.NewSubstringMatcher("* Ready to accept connections")))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error waiting for Redis to become ready")
 	}
 
 	started = true
