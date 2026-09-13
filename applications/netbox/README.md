@@ -59,11 +59,11 @@ These live as versioned integration tests under
 `applications/netbox/versions/`, one directory per version. The wrapper pins
 all three images so they move together with the netbox-docker release:
 
-| Component | Image                                        |
-|-----------|----------------------------------------------|
-| NetBox    | `index.docker.io/netboxcommunity/netbox:v4.6-5.0.1` |
-| PostgreSQL| `index.docker.io/library/postgres:16.15`     |
-| Redis     | `index.docker.io/library/redis:7.4-alpine`   |
+| Component   | Image                                               |
+|-------------|-----------------------------------------------------|
+| NetBox      | `index.docker.io/netboxcommunity/netbox:v4.6-5.0.1` |
+| PostgreSQL  | `index.docker.io/library/postgres:16.15`            |
+| Redis       | `index.docker.io/library/redis:7.4-alpine`          |
 
 ## Default image
 
