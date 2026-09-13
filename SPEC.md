@@ -197,10 +197,13 @@ packages and mock implementers.
 that generalizes the library's log-line readiness model (`AwaitOutput`) into
 composable **wait strategies**: HTTP probes, in-container commands, raw TCP
 connects, and log matching, combined with `ForAll` / `ForAny` / `ForAtLeast`.
-It factors out the hand-rolled poll loop that application wrappers used to
-inline into one reusable, testable poller. It is **purely additive**: the root
-`docker` package is unchanged, and `wait` only imports `docker` (never the
-reverse, to avoid an import cycle).
+It is the library's **standard, first-class readiness mechanism**: it factors
+out the hand-rolled poll loop that application wrappers used to inline into one
+reusable, testable poller, and application wrappers use it to poll for readiness
+(e.g. `applications/forgejo` calls `wait.Wait(ctx, c, wait.ForLog(...))` and
+`wait.Wait(ctx, c, wait.ForTCPConnection(22))`). It remains **additive** to the
+root `docker` package — the base `Container` interface is unchanged, and `wait`
+only imports `docker` (never the reverse, to avoid an import cycle).
 
 #### Core contract
 
@@ -448,6 +451,10 @@ Group.Close (per application, in reverse order):
 ## Conventions
 
 - **No mocks in tests** — real Docker containers only (skippable without Docker).
+- **Wait strategies are the standard readiness mechanism** — `wait.Wait` with
+  composable strategies (`ForLog`, `ForHTTPGet`, `ForCommand`,
+  `ForTCPConnection`, combined with `ForAll` / `ForAny` / `ForAtLeast`) is how
+  application wrappers poll for readiness.
 - **Testable Examples** (`Example*` functions) in every application package.
 - **Versioned integration tests** live under `applications/*/versions/`.
 - **Error wrapping** uses `github.com/pkg/errors` consistently.
