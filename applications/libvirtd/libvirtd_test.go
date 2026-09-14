@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
-	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
@@ -22,28 +21,6 @@ import (
 
 func init() {
 	log.SetLevel(log.TraceLevel)
-}
-
-// requireDocker skips the test when running with -short or when the Docker
-// daemon is not reachable, so this integration test degrades gracefully on
-// machines without Docker instead of failing hard.
-func requireDocker(t *testing.T) {
-	t.Helper()
-
-	if testing.Short() {
-		t.Skip("skipping libvirtd integration test in -short mode")
-	}
-
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		t.Skipf("skipping libvirtd test: unable to create docker client: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, err := cli.Ping(ctx); err != nil {
-		t.Skipf("skipping libvirtd test: docker daemon unavailable: %v", err)
-	}
 }
 
 // listAllEntities exercises the "list everything" surface of the connected
@@ -93,8 +70,6 @@ func listAllEntities(t *testing.T, conn *libvirt.Libvirt) {
 }
 
 func TestLibvirtd(t *testing.T) {
-	requireDocker(t)
-
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
@@ -195,8 +170,6 @@ func cirrosDomainXML(name, diskPath, arch string) string {
 // volume into a dir storage pool, defines and starts a domain, and verifies
 // the domain reaches the running state.
 func TestLibvirtdCreateCirrosVM(t *testing.T) {
-	requireDocker(t)
-
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
@@ -306,8 +279,6 @@ func TestLibvirtdCreateCirrosVM(t *testing.T) {
 // off libvirt's networking functionality. Starting a network bridge requires
 // writing to /proc/sys (writable only in a privileged container).
 func TestLibvirtdNetworkCRUD(t *testing.T) {
-	requireDocker(t)
-
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)

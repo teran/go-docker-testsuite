@@ -28,8 +28,7 @@ other languages cannot be accepted.
    use `Trace`/`Debug` level. Let the application layer decide log severity.
 
 4. **Testing**:
-   - Integration tests use real Docker containers (skipped if Docker is
-     unavailable).
+   - Integration tests use real Docker containers.
    - Write testable `Example*` functions for public APIs.
    - Versioned integration tests go in `applications/*/versions/`.
 
