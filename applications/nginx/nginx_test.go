@@ -14,28 +14,6 @@ import (
 	"github.com/teran/go-docker-testsuite/applications/nginx"
 )
 
-// requireDocker skips the test when Docker is unavailable or -short is set, so
-// the integration tests degrade gracefully on machines without Docker instead
-// of failing hard.
-func requireDocker(t *testing.T) {
-	t.Helper()
-
-	if testing.Short() {
-		t.Skip("skipping integration test in -short mode")
-	}
-
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		t.Skipf("skipping integration test: unable to create docker client: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, err := cli.Ping(ctx); err != nil {
-		t.Skipf("skipping integration test: docker daemon unavailable: %v", err)
-	}
-}
-
 // requireContainerGone asserts that a container with the given ID was removed.
 func requireContainerGone(t *testing.T, id docker.ContainerID) {
 	t.Helper()
@@ -75,8 +53,6 @@ func getBody(t *testing.T, url string) (int, string) {
 // ---------------------------------------------------------------------------
 
 func TestNewWithConfig(t *testing.T) {
-	requireDocker(t)
-
 	config := []byte(`server {
     listen 80;
     location / {
@@ -105,8 +81,6 @@ func TestNewWithConfig(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestReadinessAnyResponse(t *testing.T) {
-	requireDocker(t)
-
 	// Point nginx at an upstream that is not listening. nginx itself should
 	// still start and listen, returning 502 on requests.
 	config := []byte(`server {
@@ -137,8 +111,6 @@ func TestReadinessAnyResponse(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAddrMustAddr(t *testing.T) {
-	requireDocker(t)
-
 	config := []byte(`server {
     listen 80;
     location / {
@@ -171,8 +143,6 @@ func TestAddrMustAddr(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewWithConfigT(t *testing.T) {
-	requireDocker(t)
-
 	config := []byte(`server {
     listen 80;
     location / {

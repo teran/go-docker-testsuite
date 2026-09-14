@@ -89,7 +89,7 @@ describe what the change does and why.
 1. Ensure your branch is up to date with `master`.
 2. Run `golangci-lint run ./...` — zero issues.
 3. Run `go build ./...` — clean compilation.
-4. Run tests — pass or be explicitly skipped when Docker is unavailable.
+4. Run tests — they require a running Docker daemon to pass.
 5. Update `README.md` if your change affects the public API or the list of
    supported applications.
 6. The PR description should explain **what** and **why**, not **how**.

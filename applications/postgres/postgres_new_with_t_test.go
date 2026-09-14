@@ -12,26 +12,6 @@ import (
 	docker "github.com/teran/go-docker-testsuite"
 )
 
-// requireDocker skips the test when Docker is unavailable or -short is set.
-func requireDocker(t *testing.T) {
-	t.Helper()
-
-	if testing.Short() {
-		t.Skip("skipping integration test in -short mode")
-	}
-
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		t.Skipf("skipping integration test: unable to create docker client: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, err := cli.Ping(ctx); err != nil {
-		t.Skipf("skipping integration test: docker daemon unavailable: %v", err)
-	}
-}
-
 // requireContainerGone asserts that a container with the given ID was removed.
 func requireContainerGone(t *testing.T, id docker.ContainerID) {
 	t.Helper()
@@ -56,7 +36,6 @@ func requireContainerGone(t *testing.T, id docker.ContainerID) {
 // without any manual Close. We use the subtest pattern because t.Cleanup runs
 // after the test body, so the parent asserts removal once the subtest ends.
 func TestNewWithT(t *testing.T) {
-	requireDocker(t)
 
 	var cid docker.ContainerID
 	t.Run("new-with-t", func(t *testing.T) {
