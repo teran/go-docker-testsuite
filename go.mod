@@ -18,7 +18,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/gocql/gocql v1.7.0
 	github.com/hashicorp/vault-client-go v0.4.3
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/pkg/errors v0.9.1
