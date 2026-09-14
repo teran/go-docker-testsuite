@@ -67,4 +67,22 @@ const (
 	// both the task queue and the cache). Pinned to a stable 7.4-alpine build,
 	// which is within the range supported by NetBox v4.6.
 	NetBoxRedis = "index.docker.io/library/redis:7.4-alpine"
+
+	// PaperlessNGX image tag: paperless-ngx v3.1.3 (multi-arch amd64+arm64).
+	PaperlessNGX = "index.docker.io/paperlessngx/paperless-ngx:3.1.3"
+
+	// PaperlessNGXPostgres is the PostgreSQL image backing Paperless-ngx.
+	PaperlessNGXPostgres = "index.docker.io/library/postgres:18"
+
+	// PaperlessNGXValkey is the Valkey (Redis-protocol compatible) message broker
+	// backing Paperless-ngx.
+	PaperlessNGXValkey = "index.docker.io/valkey/valkey:9-alpine"
+
+	// PaperlessNGXGotenberg converts office documents to PDF (optional, used at
+	// consumption time).
+	PaperlessNGXGotenberg = "index.docker.io/gotenberg/gotenberg:8.34"
+
+	// PaperlessNGXTika extracts text from office documents (optional, used at
+	// consumption time).
+	PaperlessNGXTika = "index.docker.io/apache/tika:3.3.1.0"
 )

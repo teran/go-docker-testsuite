@@ -74,6 +74,7 @@ Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL) use the
 | [NetBox](https://netbox.dev/)                                | [`applications/netbox`](./applications/netbox)           | NetBox (DCIM/IPAM) with PostgreSQL + Redis (Group) |
 | [Nginx](https://nginx.org/)                                  | [`applications/nginx`](./applications/nginx)             | nginx reverse proxy / web server                   |
 | [OpenSearch](https://opensearch.org/)                        | [`applications/opensearch`](./applications/opensearch)   | OpenSearch with opensearch-go client               |
+| [Paperless-ngx](https://docs.paperless-ngx.com/)             | [`applications/paperless-ngx`](./applications/paperless-ngx) | Paperless-ngx (document management) with PostgreSQL + Valkey (Group) |
 | [PostgreSQL](https://www.postgresql.org/)                    | [`applications/postgres`](./applications/postgres)       | PostgreSQL with pgx client                         |
 | [RabbitMQ](https://www.rabbitmq.com/)                        | [`applications/rabbitmq`](./applications/rabbitmq)       | RabbitMQ (AMQP + Management API)                   |
 | [Redis](https://redis.io/)                                   | [`applications/redis`](./applications/redis)             | Redis with go-redis client                         |
