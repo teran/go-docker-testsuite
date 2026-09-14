@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -154,6 +155,13 @@ func (tc *TestContainer) Exec(ctx context.Context, cmd []string) (*ExecResult, e
 // GetOutput delegates to the wrapped container.
 func (tc *TestContainer) GetOutput(ctx context.Context, ms ...Matcher) ([]string, error) {
 	return tc.c.GetOutput(ctx, ms...)
+}
+
+// CopyFromContainer delegates to the wrapped container, returning a tar stream
+// of the file or directory at srcPath. Works even when the wrapped Container
+// holds the base interface, by resolving the optional capability.
+func (tc *TestContainer) CopyFromContainer(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	return CopyFromContainer(ctx, tc.c, srcPath)
 }
 
 // ID returns the Docker container ID (empty until Run).

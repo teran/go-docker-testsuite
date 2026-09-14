@@ -30,6 +30,8 @@ Go tests.
   (`WithStartupCommand`, `WithAfterReadyCommand`)
 - **Copy files into containers** — seed files before start with `WithFiles`
   (`FileFromBytes` for small content, or stream large files via `io.Reader` + `Size`)
+- **Copy files out of containers** — read a file/directory back out of a running
+  container as a tar stream with `docker.CopyFromContainer` (inverse of `WithFiles`)
 - **Resource limits** — cap CPU/memory/pids to protect the host and CI
   (`WithMemoryLimit`, `WithCPUs`, `WithPidsLimit`, ...)
 - **Matchers** — await container logs with substring, exact,
@@ -417,6 +419,37 @@ c, err := docker.NewContainerWithLifecycle(
     }),
 )
 ```
+
+### Copying files out of the container (CopyFromContainer)
+
+To read a file or directory back out of a **running** container (e.g. to verify
+what the application produced), use `docker.CopyFromContainer`. It returns a
+**tar stream** that you unpack (e.g. with `archive/tar`) to obtain the content:
+
+```go
+rc, err := docker.CopyFromContainer(ctx, c, "/tmp/report.txt")
+if err != nil {
+    panic(err)
+}
+defer rc.Close()
+
+tr := tar.NewReader(rc)
+if _, err := tr.Next(); err != nil {
+    panic(err)
+}
+
+content, err := io.ReadAll(tr)
+if err != nil {
+    panic(err)
+}
+
+fmt.Printf("content: %s", content)
+```
+
+`docker.CopyFromContainer` works on any `Container` (including
+`TestContainer`) and requires the container to be running. Copying a directory
+(e.g. `/data`) returns tar entries named relative to the archive root
+(`data/...`). This is the inverse of `WithFiles`.
 
 ### Image prefix / proxy
 

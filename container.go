@@ -214,6 +214,28 @@ type Container interface {
 	URL(proto Protocol, port uint16) (*HostPort, error)
 }
 
+// ContainerFileCopier is implemented by containers that can copy a file or
+// directory out of a running container as a tar stream. It is an optional
+// capability (not part of the Container interface): the concrete container and
+// TestContainer satisfy it, and docker.CopyFromContainer resolves it for callers
+// holding only the Container interface.
+type ContainerFileCopier interface {
+	CopyFromContainer(ctx context.Context, srcPath string) (io.ReadCloser, error)
+}
+
+// CopyFromContainer copies the file or directory at srcPath out of the running
+// container c, returning a tar stream that the caller must close and unpack
+// (e.g. with archive/tar) to obtain the content. It works on any Container that
+// supports the operation (the concrete container and TestContainer do); a
+// Container without this capability returns an error.
+func CopyFromContainer(ctx context.Context, c Container, srcPath string) (io.ReadCloser, error) {
+	fc, ok := c.(ContainerFileCopier)
+	if !ok {
+		return nil, errors.New("container does not support copying files out")
+	}
+	return fc.CopyFromContainer(ctx, srcPath)
+}
+
 // ExecResult carries the captured output and exit status of an Exec call.
 type ExecResult struct {
 	Stdout   []byte
@@ -512,6 +534,29 @@ func (c *container) Exec(ctx context.Context, cmd []string) (*ExecResult, error)
 	}, nil
 }
 
+// CopyFromContainer returns a tar stream (io.ReadCloser) containing the file
+// or directory at srcPath inside the running container. The caller owns the
+// returned reader: it must be closed, and its content unpacked (e.g. with
+// archive/tar) to obtain the actual file/directory. Requires the container to
+// be running.
+func (c *container) CopyFromContainer(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	if c.containerID == "" {
+		return nil, errors.New("container is not running")
+	}
+
+	log.WithFields(log.Fields{
+		"container": c.containerID,
+		"src":       srcPath,
+	}).Trace("copying from container")
+
+	rc, _, err := c.cli.CopyFromContainer(ctx, c.containerID, srcPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "error copying from container")
+	}
+	return rc, nil
+}
+
+// Name returns the container name.
 func (c *container) Name() string {
 	return c.name
 }

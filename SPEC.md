@@ -48,6 +48,8 @@ or object storage — without mocks.
 | `container` | Concrete impl: Docker API client, image pull + create + start + stop + remove |
 | `ContainerOption` | Modifies the Docker `HostConfig` (e.g. `WithPrivileged`, `WithTmpfs`, `WithBinds`, `WithUlimit`, `WithDevices`, `WithCapAdd`, `WithCapDrop`, `WithSecurityOpt`, `WithMemoryLimit`, `WithMemoryReservation`, `WithMemorySwap`, `WithCPUs`, `WithCpusetCpus`, `WithPidsLimit`, `WithNetworkMode`, `WithHostNetwork`) |
 | `NetworkMode` / `WithNetworkMode` / `WithHostNetwork` | Container network mode (bridge/host/none) mapping to `HostConfig.NetworkMode`; an additive `ContainerOption` (roadmap #19). `WithNetworkMode(NetworkModeHost)` and `WithHostNetwork()` are equivalent. |
+| `ContainerFileCopier` | Optional capability: a container that can copy a file/directory out of a running container as a tar stream (`CopyFromContainer(ctx, srcPath) (io.ReadCloser, error)`). Satisfied by the concrete `container` and `TestContainer`; not part of the `Container` interface |
+| `CopyFromContainer` | Package-level helper: `CopyFromContainer(ctx, c Container, srcPath string) (io.ReadCloser, error)` — copies a file/directory out of a running container as a tar stream, resolving the optional `ContainerFileCopier` capability (an error if the container does not support it) |
 | `ContainerInfo` | Resolves external port mappings and the Docker host IP |
 | `Application` | Wraps `Container` with lifecycle hooks (`BeforeRun`, `AfterRun`, `BeforeClose`, `AfterClose`) |
 | `Group` | Isolated internal Docker network; runs multiple `Application`s with DNS resolution |
@@ -190,6 +192,35 @@ The `Container` interface is **not** extended: file seeding is a
 configuration-time concern, expressed as an option like `WithBinds`, rather
 than a runtime method. This keeps the interface stable for existing application
 packages and mock implementers.
+
+### Copying files out of the container (`CopyFromContainer`)
+
+The inverse of `WithFiles`: pull a file or directory out of a **running**
+container to inspect/verify its content. Because it is a runtime operation (not
+a configuration-time concern), it is exposed as an **optional capability**
+rather than a new method on the `Container` interface, so no existing
+implementer or mock is affected:
+
+```go
+type ContainerFileCopier interface {
+    CopyFromContainer(ctx context.Context, srcPath string) (io.ReadCloser, error)
+}
+
+// Package-level helper for callers holding only the Container interface.
+func CopyFromContainer(ctx context.Context, c Container, srcPath string) (io.ReadCloser, error)
+```
+
+Both the concrete `container` and `TestContainer` satisfy `ContainerFileCopier`;
+the package helper `docker.CopyFromContainer` type-asserts `c` to the
+capability and returns an error (not a panic) if it is not implemented. The
+returned reader is a **tar stream** (produced by the Docker SDK
+`CopyFromContainer`): the caller must close it and unpack it (e.g. with
+`archive/tar`) to obtain the content. When copying a directory, Docker names the
+tar entries relative to the archive root (e.g. copying `/data` yields
+`data/...` entries). The container must be running; `CopyFromContainer` on a
+not-yet-run container returns an error. This complements `WithFiles` and gives
+tests a way to read back application output (config, reports, generated files)
+for assertions.
 
 ### Wait strategies (`package wait`)
 
