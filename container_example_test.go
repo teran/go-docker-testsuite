@@ -1,8 +1,10 @@
 package docker_test
 
 import (
+	"archive/tar"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -154,4 +156,56 @@ func ExampleNewContainerWithLifecycle() {
 
 	fmt.Printf("startup: %s", startup.Stdout)
 	fmt.Printf("seeded: %s", seeded.Stdout)
+}
+
+// This example demonstrates copying a file out of a running container with
+// docker.CopyFromContainer: the returned reader is a tar stream, which is
+// unpacked to read the file's content back out for verification.
+func ExampleCopyFromContainer() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	c, err := docker.NewContainer(
+		"copy-example",
+		"busybox:latest",
+		[]string{"sleep", "300"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		fmt.Printf("error creating container: %v\n", err)
+		return
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	if err := c.Run(ctx); err != nil {
+		fmt.Printf("error running container: %v\n", err)
+		return
+	}
+
+	if _, err := c.Exec(ctx, []string{"sh", "-c", "echo 'secrets' > /tmp/report.txt"}); err != nil {
+		fmt.Printf("error writing file: %v\n", err)
+		return
+	}
+
+	rc, err := docker.CopyFromContainer(ctx, c, "/tmp/report.txt")
+	if err != nil {
+		fmt.Printf("error copying from container: %v\n", err)
+		return
+	}
+	defer func() { _ = rc.Close() }()
+
+	tr := tar.NewReader(rc)
+	if _, err := tr.Next(); err != nil {
+		fmt.Printf("error reading tar header: %v\n", err)
+		return
+	}
+
+	content, err := io.ReadAll(tr)
+	if err != nil {
+		fmt.Printf("error reading content: %v\n", err)
+		return
+	}
+
+	fmt.Printf("content: %s", content)
 }
