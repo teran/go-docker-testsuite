@@ -72,6 +72,7 @@ Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL) use the
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)                 | Apache Kafka with Sarama client                                      |
 | [Memcache](https://memcached.org/)                         | [`applications/memcache`](./applications/memcache)           | Memcached with gomemcache client                                     |
 | [MinIO (Silo fork)](https://silo.pgsty.com/)               | [`applications/minio`](./applications/minio)                 | S3-compatible object storage                                         |
+| [MongoDB](https://www.mongodb.com/)                        | [`applications/mongodb`](./applications/mongodb)           | MongoDB with mongo-driver client                                    |
 | [MySQL / MariaDB / Percona Server](https://www.mysql.com/) | [`applications/mysql`](./applications/mysql)                 | MySQL-compatible databases                                           |
 | [NetBox](https://netbox.dev/)                              | [`applications/netbox`](./applications/netbox)               | NetBox (DCIM/IPAM) with PostgreSQL + Redis (Group)                   |
 | [Nginx](https://nginx.org/)                                | [`applications/nginx`](./applications/nginx)                 | nginx reverse proxy / web server                                     |
