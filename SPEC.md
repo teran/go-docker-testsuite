@@ -415,6 +415,7 @@ on a shared internal network, publishing only the NetBox web port:
 | `applications/kafka` | Apache Kafka | `github.com/IBM/sarama` |
 | `applications/memcache` | Memcached | `github.com/bradfitz/gomemcache` |
 | `applications/minio` | MinIO / Silo (S3) | `github.com/minio/minio-go/v7` |
+| `applications/mongodb` | MongoDB | `go.mongodb.org/mongo-driver` |
 | `applications/mysql` | MySQL / MariaDB / Percona | `github.com/go-sql-driver/mysql` |
 | `applications/netbox` | NetBox (DCIM/IPAM) | standard library (`net/http`) |
 | `applications/nginx` | nginx reverse proxy / web server | standard library (`net/http`) |
