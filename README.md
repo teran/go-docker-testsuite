@@ -70,6 +70,7 @@ the full list:
 | Application                                                | Package                                                      | Description                                                          |
 |------------------------------------------------------------|--------------------------------------------------------------|----------------------------------------------------------------------|
 | [Ceph (RGW)](https://ceph.io/)                             | [`applications/ceph`](./applications/ceph)                   | Ceph RGW (S3) with AWS SDK v2 client                                 |
+| [ClickHouse](https://clickhouse.com/)                      | [`applications/clickhouse`](./applications/clickhouse)       | ClickHouse with clickhouse-go (database/sql)                         |
 | [Forgejo](https://forgejo.org/)                            | [`applications/forgejo`](./applications/forgejo)             | Forgejo (git hosting) with SQLite                                    |
 | [K3s](https://k3s.io/)                                     | [`applications/k3s`](./applications/k3s)                     | K3s (Kubernetes) with client-go                                      |
 | [Kafka](https://kafka.apache.org/)                         | [`applications/kafka`](./applications/kafka)                 | Apache Kafka with Sarama client                                      |
