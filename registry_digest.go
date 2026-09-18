@@ -64,21 +64,26 @@ func (c *container) remoteManifestDigest(ctx context.Context) (string, error) {
 
 	username, password, identityToken := registryCredentials(domain)
 
-	for _, scheme := range []string{"https", "http"} {
-		manifestURL := fmt.Sprintf("%s://%s/v2/%s/manifests/%s", scheme, domain, path, tag)
+	// Only HTTPS is used for the best-effort digest lookup. Registries are
+	// served over TLS; falling back to plain HTTP on an HTTPS failure would
+	// only ever send credentials (or be subject to a downgrade) over an
+	// unencrypted channel without providing any legitimate benefit. Local /
+	// insecure registries that do not serve TLS are not handled here — they
+	// fall through to a normal pull via the Docker SDK, which honours the
+	// daemon's insecure-registries configuration.
+	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", domain, path, tag)
 
-		if d, err := fetchManifestDigest(ctx, manifestURL, "", ""); err == nil && d != "" {
-			return d, nil
-		}
+	if d, err := fetchManifestDigest(ctx, manifestURL, "", ""); err == nil && d != "" {
+		return d, nil
+	}
 
-		token, err := registryToken(ctx, manifestURL, username, password, identityToken)
-		if err != nil || token == "" {
-			continue
-		}
+	token, err := registryToken(ctx, manifestURL, username, password, identityToken)
+	if err != nil || token == "" {
+		return "", errors.Errorf("could not determine remote manifest digest for %q", c.image)
+	}
 
-		if d, err := fetchManifestDigest(ctx, manifestURL, "Bearer", token); err == nil && d != "" {
-			return d, nil
-		}
+	if d, err := fetchManifestDigest(ctx, manifestURL, "Bearer", token); err == nil && d != "" {
+		return d, nil
 	}
 
 	return "", errors.Errorf("could not determine remote manifest digest for %q", c.image)
@@ -104,7 +109,7 @@ func fetchManifestDigest(ctx context.Context, url, authScheme, token string) (st
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
+		return "", errors.Errorf("GET %s: status %d", url, resp.StatusCode)
 	}
 	return resp.Header.Get("Docker-Content-Digest"), nil
 }
