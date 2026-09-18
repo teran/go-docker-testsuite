@@ -402,10 +402,11 @@ concurrent use.
 ### Application layer (`applications/`)
 
 Each sub-package wraps a specific service and returns a typed client. Most
-wrappers manage a single container; `applications/netbox` is the first
-**multi-container `Group`-based** wrapper — because NetBox requires external
-PostgreSQL and Redis, it spins up three containers (netbox + postgres + redis)
-on a shared internal network, publishing only the NetBox web port:
+wrappers manage a single container; `applications/netbox` and
+`applications/paperless-ngx` are **multi-container `Group`-based** wrappers —
+because NetBox and Paperless-ngx require external services, they spin up
+several containers on a shared internal network, publishing only the primary
+service's web port:
 
 | Package | Service | Client library |
 | --------- | --------- | ---------------- |
@@ -420,6 +421,7 @@ on a shared internal network, publishing only the NetBox web port:
 | `applications/netbox` | NetBox (DCIM/IPAM) | standard library (`net/http`) |
 | `applications/nginx` | nginx reverse proxy / web server | standard library (`net/http`) |
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
+| `applications/paperless-ngx` | Paperless-ngx (document management) | standard library (`net/http`) |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |
 | `applications/rabbitmq` | RabbitMQ | standard library (`net/http`, `encoding/json`) |
 | `applications/redis` | Redis | `github.com/go-redis/redis/v8` |

@@ -209,3 +209,71 @@ func ExampleCopyFromContainer() {
 
 	fmt.Printf("content: %s", content)
 }
+
+// This example demonstrates seeding a small file into a container before it
+// starts with WithFiles / FileFromBytes: the file is copied into the container
+// filesystem during Run, before the entrypoint runs.
+func ExampleNewContainerWithLifecycle_withFiles() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	c, err := docker.NewContainerWithLifecycle(
+		"withfiles-example",
+		"busybox:latest",
+		[]string{"sh", "-c", "cat /etc/app.conf; sleep 300"},
+		nil,
+		nil,
+		docker.WithFiles(
+			docker.FileFromBytes("/etc/app.conf", []byte("key=value\n"), 0600, 0, 0),
+		),
+	)
+	if err != nil {
+		fmt.Printf("error creating container: %v\n", err)
+		return
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	if err := c.Run(ctx); err != nil {
+		fmt.Printf("error running container: %v\n", err)
+		return
+	}
+
+	res, err := c.Exec(ctx, []string{"cat", "/etc/app.conf"})
+	if err != nil {
+		fmt.Printf("error reading file: %v\n", err)
+		return
+	}
+
+	fmt.Printf("content: %s", res.Stdout)
+}
+
+// This example demonstrates capping the resources of a test container so a
+// runaway test cannot exhaust the host or CI runner: memory, CPU and process
+// limits are set via the With* ContainerOptions.
+func ExampleNewContainer_resourceLimits() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	c, err := docker.NewContainer(
+		"limits-example",
+		"busybox:latest",
+		[]string{"sleep", "300"},
+		nil,
+		nil,
+		docker.WithMemoryLimit(128*1024*1024), // 128 MiB
+		docker.WithCPUs(0.5),                  // half a vCPU
+		docker.WithPidsLimit(256),
+	)
+	if err != nil {
+		fmt.Printf("error creating container: %v\n", err)
+		return
+	}
+	defer func() { _ = c.Close(ctx) }()
+
+	if err := c.Run(ctx); err != nil {
+		fmt.Printf("error running container: %v\n", err)
+		return
+	}
+
+	fmt.Println("container started with resource limits")
+}

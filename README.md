@@ -41,6 +41,8 @@ Go tests.
   `ForAll` / `ForAny` / `ForAtLeast` (`github.com/teran/go-docker-testsuite/wait`)
 - **Environment builder** — fluent DSL to declare typed environment variables
 - **Port bindings** — DNAT port mapping with random or one-to-one port allocation
+- **Network mode** — run a container on the host or a custom network
+  (`WithNetworkMode(NetworkModeHost)`, `WithHostNetwork()`)
 - **IMAGE_PREFIX** — optional `IMAGE_PREFIX` env var to route images through a proxy/mirror
 - **`*testing.T` binding** — bind a container/group to a test for automatic
   teardown (`t.Cleanup`) and `t.Logf` lifecycle logging, with safe `t.Parallel()`
@@ -61,8 +63,9 @@ go get github.com/teran/go-docker-testsuite
 
 The test suite provides ready-to-use wrappers (each returns a typed
 client interface and handles startup, health checks, and cleanup).
-Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL) use the
-`wait` package internally to poll for readiness. Here's the full list:
+Several wrappers (PostgreSQL, OpenSearch, nginx, Redis, MySQL, MongoDB,
+Forgejo) use the `wait` package internally to poll for readiness. Here's
+the full list:
 
 | Application                                                | Package                                                      | Description                                                          |
 |------------------------------------------------------------|--------------------------------------------------------------|----------------------------------------------------------------------|
@@ -268,11 +271,12 @@ _ = c.Run(ctx)
 ```
 
 Application packages expose T-bound constructors that create the container
-*and* start it, all tied to the test: `applications/postgres`
-(`NewWithT(t, ctx)` — uses the default `images.Postgres`, or
-`NewWithImageT(t, ctx, image)`), `applications/redis` and `applications/mysql`
-(`NewWithT(t, ctx, image)`). PostgreSQL is bound first because it is the most
-commonly used; the other application packages will follow.
+*and* start it, all tied to the test. Following the standard
+four-constructor contract (see SPEC → "Constructor contract"), wrappers with
+a default image expose `NewWithT(t, ctx)` and `NewWithImageT(t, ctx, image)`
+(e.g. `applications/postgres`, `applications/mongodb`), while the legacy
+`mysql`/`redis`/`vault` packages keep `NewWithT(t, ctx, image)` for backward
+compatibility.
 
 **Safe `t.Parallel()`.** Each binding owns its own lifecycle: cleanups are
 registered against the correct per-test `*testing.T` and run in that test's
