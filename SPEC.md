@@ -424,6 +424,7 @@ service's web port:
 | `applications/opensearch` | OpenSearch | `github.com/opensearch-project/opensearch-go/v4` |
 | `applications/paperless-ngx` | Paperless-ngx (document management) | standard library (`net/http`) |
 | `applications/postgres` | PostgreSQL | `github.com/jackc/pgx/v5` |
+| `applications/prometheus` | Prometheus (monitoring) | `github.com/prometheus/client_golang` |
 | `applications/rabbitmq` | RabbitMQ | standard library (`net/http`, `encoding/json`) |
 | `applications/redis` | Redis | `github.com/go-redis/redis/v8` |
 | `applications/scylladb` | ScyllaDB (CQL) | `github.com/gocql/gocql` |

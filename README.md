@@ -83,6 +83,7 @@ the full list:
 | [OpenSearch](https://opensearch.org/)                      | [`applications/opensearch`](./applications/opensearch)       | OpenSearch with opensearch-go client                                 |
 | [Paperless-ngx](https://docs.paperless-ngx.com/)           | [`applications/paperless-ngx`](./applications/paperless-ngx) | Paperless-ngx (document management) with PostgreSQL + Valkey (Group) |
 | [PostgreSQL](https://www.postgresql.org/)                  | [`applications/postgres`](./applications/postgres)           | PostgreSQL with pgx client                                           |
+| [Prometheus](https://prometheus.io/)                       | [`applications/prometheus`](./applications/prometheus)       | Prometheus with prometheus/client_golang (HTTP API)                  |
 | [RabbitMQ](https://www.rabbitmq.com/)                      | [`applications/rabbitmq`](./applications/rabbitmq)           | RabbitMQ (AMQP + Management API)                                     |
 | [Redis](https://redis.io/)                                 | [`applications/redis`](./applications/redis)                 | Redis with go-redis client                                           |
 | [ScyllaDB](https://www.scylladb.com/)                      | [`applications/scylladb`](./applications/scylladb)           | ScyllaDB with gocql client                                           |

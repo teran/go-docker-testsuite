@@ -13,6 +13,9 @@ const (
 	// ClickHouse image tag
 	ClickHouse = "index.docker.io/clickhouse/clickhouse-server:26.8"
 
+	// Prometheus image tag
+	Prometheus = "index.docker.io/prom/prometheus:v3.2.1"
+
 	// Kafka image
 	Kafka = "index.docker.io/apache/kafka:4.0.0"
 
