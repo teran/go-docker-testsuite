@@ -18,7 +18,7 @@ func Example() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	app, err := mongodb.New(ctx, "index.docker.io/library/mongo:7.0.43")
+	app, err := mongodb.NewWithImage(ctx, "index.docker.io/library/mongo:7.0.43")
 	if err != nil {
 		fmt.Printf("error: %v (is Docker running?)\n", err)
 		return

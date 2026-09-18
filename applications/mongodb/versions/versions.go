@@ -75,7 +75,7 @@ func (s *MongoTestSuite) TestDDL() {
 
 func (s *MongoTestSuite) SetupTest() {
 	var err error
-	s.app, err = mongodb.New(s.ctx, s.image)
+	s.app, err = mongodb.NewWithImage(s.ctx, s.image)
 	s.Require().NoError(err)
 }
 

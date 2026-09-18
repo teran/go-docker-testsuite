@@ -445,6 +445,33 @@ Other wrappers expose service-specific accessors instead (e.g. redis `Addr`,
 rabbitmq `GetAMQPURL`/`GetManagementURL`, ceph `Endpoint`/`Client`,
 k3s `Clientset`/`KubeconfigPath`).
 
+#### Constructor contract
+
+Every application package exposes a **standard, four-constructor surface**
+(the PostgreSQL pattern), unless the service needs extra configuration
+arguments. For a wrapper with no extra args:
+
+```go
+New(ctx context.Context) (T, error)                       // default image (images.X)
+NewWithImage(ctx context.Context, image string) (T, error) // specific image
+NewWithT(t *testing.T, ctx context.Context) (T, error)     // default image, bound to the test
+NewWithImageT(t *testing.T, ctx context.Context, image string) (T, error)
+```
+
+The `NewWithT` / `NewWithImageT` variants tie the container lifecycle to a
+`*testing.T` via `t.Cleanup` (see [Testing.T binding](#testingt-binding)).
+Wrappers that require extra configuration follow the same shape with
+additional trailing args, e.g. `New(ctx, opts ...Option)` /
+`NewWithImage(ctx, image string, opts ...Option)`, or a config-specific
+constructor (e.g. nginx `NewWithConfig`).
+
+**Backward compatibility.** The single-argument `New(ctx, image)` form
+(no default image) predates this contract and is retained **only** in
+packages already released with it — `mysql`, `redis`, `vault`. Those
+packages keep their existing signatures to avoid breaking consumers; new
+wrappers must follow the four-constructor contract above (see the MongoDB
+wrapper, which was aligned to it).
+
 ### Image resolution
 
 - `IMAGE_PREFIX` env var prepends a registry mirror to all image references.
