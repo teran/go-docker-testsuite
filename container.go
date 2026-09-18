@@ -514,6 +514,23 @@ func (c *container) Exec(ctx context.Context, cmd []string) (*ExecResult, error)
 	}
 	defer attachResp.Close()
 
+	// A command that hangs (produces no output and never exits) would block
+	// stdcopy.StdCopy reading the hijacked connection forever. Cancelling ctx
+	// (e.g. via defaultExecTimeout) does not close a hijacked connection on its
+	// own, so ensure the deadline/cancellation actually interrupts the read by
+	// closing the attach stream as soon as ctx is done. Otherwise a hung
+	// lifecycle command would block Run() (and the whole test) indefinitely.
+	// stop terminates the goroutine on normal completion so it never leaks.
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		select {
+		case <-ctx.Done():
+			attachResp.Close()
+		case <-stop:
+		}
+	}()
+
 	// Docker multiplexes stdout and stderr into a single stream with headers.
 	// Use stdcopy to demultiplex and capture each stream separately.
 	var stdoutBuf, stderrBuf bytes.Buffer

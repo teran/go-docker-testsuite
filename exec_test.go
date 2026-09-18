@@ -218,6 +218,45 @@ func TestContainerExec(t *testing.T) {
 	})
 }
 
+// TestContainerExecHangReturnsOnContextDeadline verifies that Exec on a command
+// that hangs (produces no output and never exits) returns as soon as the context
+// deadline elapses, rather than blocking forever. This guards the goroutine in
+// Exec that closes the attach stream on ctx.Done(); without it a hung
+// lifecycle/startup command would block Run() (and the whole test) indefinitely.
+func TestContainerExecHangReturnsOnContextDeadline(t *testing.T) {
+	r := require.New(t)
+	requireDocker(t)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+
+	c, err := NewContainer(
+		"exec-hang-test",
+		busyboxImage,
+		[]string{"sleep", "300"},
+		NewEnvironment(),
+		NewPortBindings(),
+	)
+	r.NoError(err)
+	defer func() { _ = c.Close(ctx) }()
+
+	err = c.Run(ctx)
+	r.NoError(err)
+
+	// An infinite, silent loop: never exits and never emits output, so the only
+	// way Exec can return is via the context deadline closing the attach stream.
+	execCtx, execCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer execCancel()
+
+	start := time.Now()
+	_, err = c.Exec(execCtx, []string{"sh", "-c", "while :; do :; done"})
+	elapsed := time.Since(start)
+
+	// Exec must surface the deadline/closed-stream error instead of hanging.
+	r.Error(err)
+	r.Less(elapsed, 30*time.Second, "Exec must return promptly after the context deadline")
+}
+
 func TestContainerWithStartupCommand(t *testing.T) {
 	r := require.New(t)
 	requireDocker(t)
