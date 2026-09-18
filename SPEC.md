@@ -543,5 +543,10 @@ Group.Close (per application, in reverse order):
 ## Security
 
 - Application wrappers validate database/keyspace names to prevent SQL/CQL
-  injection through DDL identifiers.
+  injection through DDL identifiers. All DDL wrappers (postgres, mysql,
+  scylladb, mongodb) use a strict **printable-ASCII whitelist**
+  (`[a-zA-Z0-9_]`, plus service-specific extras such as `-` for MongoDB or
+  `$` for MySQL) plus a length cap — never `regexp` and never a permissive
+  `unicode.IsLetter`/`unicode.IsDigit` allow-list, which would leave
+  identifiers open to Unicode normalization / homoglyph attacks.
 - See [SECURITY.md](./SECURITY.md) for the vulnerability reporting policy.

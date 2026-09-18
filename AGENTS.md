@@ -38,8 +38,12 @@ other languages cannot be accepted.
 
 6. **Identifier validation**: Application wrappers that execute DDL
    (`CreateDB`, `CreateKeyspace`, etc.) **must** validate identifiers to
-   prevent injection. Use `unicode.IsLetter`/`unicode.IsDigit` for Unicode
-   portability, not `regexp`.
+   prevent injection. Use a strict **printable-ASCII whitelist**
+   (`[a-zA-Z0-9_]`, plus any service-specific extra characters such as `-`
+   for MongoDB or `$` for MySQL) plus a length cap, never `regexp` and never
+   a permissive `unicode.IsLetter`/`unicode.IsDigit` allow-list. An
+   ASCII whitelist excludes Unicode normalization / homoglyph attacks, which
+   are a real risk for database identifiers.
 
 7. **Types**: Named types (`type ContainerID = string`) for documentation
    only — they are actual string aliases, not opaque types.
