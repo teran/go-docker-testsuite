@@ -15,7 +15,14 @@ func TestValidateDBName(t *testing.T) {
 		{name: "leading dot", input: ".db", wantErr: true},
 		{name: "dot anywhere", input: "db.name", wantErr: true},
 		{name: "ascii valid", input: "ddldb", wantErr: false},
-		{name: "unicode valid", input: "dätaбаза", wantErr: false},
+		{name: "ascii valid with hyphen", input: "my-db", wantErr: false},
+		{name: "ascii valid with underscore", input: "my_db", wantErr: false},
+		{name: "uppercase valid", input: "MyDB", wantErr: false},
+		{name: "digits valid", input: "db123", wantErr: false},
+		{name: "unicode letter rejected", input: "dätaбаза", wantErr: true},
+		{name: "unicode umlaut rejected", input: "däta", wantErr: true},
+		{name: "cyrillic rejected", input: "база", wantErr: true},
+		{name: "space rejected", input: "my db", wantErr: true},
 	}
 
 	for _, tt := range tests {

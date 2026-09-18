@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"unicode"
 
 	mongoClient "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -33,10 +32,11 @@ const maxDBNameLen = 64
 // https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Database-Name).
 //
 // To prevent URI injection and Unicode normalization / homoglyph attacks we
-// whitelist only Unicode letters, digits, underscore and hyphen — which
-// automatically excludes every disallowed character (including `/`, which
-// would otherwise break the connection-URI path) and prevents names starting
-// with `.` or `$`.
+// whitelist only printable ASCII letters, digits, underscore and hyphen —
+// which automatically excludes every disallowed character (including `/`,
+// which would otherwise break the connection-URI path) and prevents names
+// starting with `.` or `$`. This follows the same ASCII-whitelist standard
+// used by the other database wrappers (postgres, mysql, scylladb).
 func validateDBName(name string) error {
 	if name == "" {
 		return errors.New("database name must not be empty")
@@ -47,7 +47,9 @@ func validateDBName(name string) error {
 
 	for _, c := range name {
 		switch {
-		case unicode.IsLetter(c), unicode.IsDigit(c):
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
 		case c == '_', c == '-':
 		default:
 			return errors.Errorf("invalid database name %q: character %q is not allowed", name, c)
