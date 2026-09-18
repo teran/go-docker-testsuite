@@ -464,6 +464,7 @@ func TestContainerWithFilesInvalidDestination(t *testing.T) {
 		{name: "empty destination", file: FileFromBytes("", []byte("x\n"), 0, 0, 0)},
 		{name: "traversal with ..", file: FileFromBytes("/etc/../../escape", []byte("x\n"), 0, 0, 0)},
 		{name: "negative size", file: File{Content: strings.NewReader("x\n"), Size: -1, Destination: "/etc/neg"}},
+		{name: "nil content", file: File{Content: nil, Size: 1, Destination: "/etc/nil"}},
 	}
 
 	for _, tc := range testCases {
