@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -24,6 +25,9 @@ type group struct {
 
 	cli       *client.Client
 	networkID string
+
+	closeMu sync.Mutex
+	closed  bool
 }
 
 func NewGroup(name string, apps ...*Application) (Group, error) {
@@ -44,6 +48,14 @@ func NewGroupWithClient(cli *client.Client, name string, apps ...*Application) (
 }
 
 func (g *group) Close(ctx context.Context) error {
+	g.closeMu.Lock()
+	if g.closed {
+		g.closeMu.Unlock()
+		return nil
+	}
+	g.closed = true
+	g.closeMu.Unlock()
+
 	var errs []error
 
 	for i := len(g.apps) - 1; i >= 0; i-- {
@@ -65,9 +77,13 @@ func (g *group) Close(ctx context.Context) error {
 		}
 	}
 
-	if err := g.cli.NetworkRemove(ctx, g.networkID); err != nil {
-		log.WithError(err).Errorf("error removing network %s", g.networkID)
-		errs = append(errs, err)
+	// Only attempt to remove the network if it was actually created by Run.
+	// A group that was closed without being run has an empty networkID.
+	if g.networkID != "" {
+		if err := g.cli.NetworkRemove(ctx, g.networkID); err != nil {
+			log.WithError(err).Errorf("error removing network %s", g.networkID)
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {

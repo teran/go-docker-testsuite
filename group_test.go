@@ -82,3 +82,23 @@ func TestGroupRun(t *testing.T) {
 	r.Equal("test message", resp.GetMessage())
 
 }
+
+// TestGroupCloseIdempotent verifies that Close is safe to call multiple times
+// and that closing a group that was never Run does not attempt to remove an
+// empty network.
+func TestGroupCloseIdempotent(t *testing.T) {
+	r := require.New(t)
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+
+	g, err := NewGroup("idempotent-group")
+	r.NoError(err)
+
+	// Close without ever calling Run: networkID is empty, so NetworkRemove
+	// must be skipped and Close must succeed.
+	r.NoError(g.Close(ctx))
+
+	// A second Close must be a no-op (idempotent) and return nil.
+	r.NoError(g.Close(ctx))
+}
