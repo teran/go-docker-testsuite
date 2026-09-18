@@ -10,6 +10,9 @@ const (
 	// MongoDB image tag
 	MongoDB = "index.docker.io/library/mongo:7.0.43"
 
+	// ClickHouse image tag
+	ClickHouse = "index.docker.io/clickhouse/clickhouse-server:26.8"
+
 	// Kafka image
 	Kafka = "index.docker.io/apache/kafka:4.0.0"
 
