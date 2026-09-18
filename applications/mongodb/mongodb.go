@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	docker "github.com/teran/go-docker-testsuite"
+	"github.com/teran/go-docker-testsuite/images"
 	wait "github.com/teran/go-docker-testsuite/wait"
 )
 
@@ -78,7 +79,13 @@ type mongo struct {
 	client *mongoClient.Client
 }
 
-func New(ctx context.Context, image string) (Mongo, error) {
+// New starts a MongoDB container using the default image.
+func New(ctx context.Context) (Mongo, error) {
+	return NewWithImage(ctx, images.MongoDB)
+}
+
+// NewWithImage starts a MongoDB container using the given image.
+func NewWithImage(ctx context.Context, image string) (Mongo, error) {
 	c, err := docker.
 		NewContainer(
 			"mongodb",
@@ -159,7 +166,13 @@ func New(ctx context.Context, image string) (Mongo, error) {
 
 // NewWithT is New bound to a *testing.T: the container's lifecycle is tied to
 // the test and cleaned up automatically via t.Cleanup.
-func NewWithT(t *testing.T, ctx context.Context, image string) (Mongo, error) {
+func NewWithT(t *testing.T, ctx context.Context) (Mongo, error) {
+	return NewWithImageT(t, ctx, images.MongoDB)
+}
+
+// NewWithImageT is NewWithImage bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewWithImageT(t *testing.T, ctx context.Context, image string) (Mongo, error) {
 	c, err := docker.
 		NewContainerWithT(
 			t,
@@ -210,14 +223,26 @@ func NewWithT(t *testing.T, ctx context.Context, image string) (Mongo, error) {
 	}
 	app.client = client
 
+	// Belt-and-braces: the log line may appear slightly before the driver can
+	// actually complete a round-trip, so also ping until it succeeds.
+	ready := false
 	for i := 0; i < 30; i++ {
 		if err := client.Ping(ctx, nil); err == nil {
+			ready = true
 			break
 		}
 
 		log.Debug("MongoDB is not ready yet. Awaiting for ping to pass ...")
 
-		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "context cancelled while waiting for MongoDB ping")
+		case <-time.After(time.Second):
+		}
+	}
+
+	if !ready {
+		return nil, errors.New("MongoDB did not become ready: driver ping did not succeed within the retry window")
 	}
 
 	started = true

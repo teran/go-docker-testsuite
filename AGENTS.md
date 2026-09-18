@@ -51,6 +51,17 @@ other languages cannot be accepted.
    RAM are copied without buffering; use the `FileFromBytes` helper for small
    in-memory content. Always validate `Destination` (absolute path, no `..`).
 
+9. **Application constructors**: Every application package exposes the
+   standard four-constructor surface (the PostgreSQL pattern):
+   `New(ctx)`, `NewWithImage(ctx, image)`, `NewWithT(t, ctx)`,
+   `NewWithImageT(t, ctx, image)` — where the `New*` default uses the
+   `images.X` constant and the `*T` variants bind the lifecycle to the test
+   via `t.Cleanup`. Wrappers needing extra args add trailing parameters
+   (`opts ...Option`, config, etc.). New wrappers **must** follow this
+   contract. Do **not** introduce a new `New(ctx, image)` single-argument
+   form without a default image; the pre-existing `mysql`/`redis`/`vault`
+   packages keep their legacy signatures for backward compatibility.
+
 ## Project structure
 
 ```text

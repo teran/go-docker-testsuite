@@ -16,13 +16,16 @@ The wrapper manages the container lifecycle, waits for it to become ready
   and `DropDatabase` drops it.
 - `Close(ctx)` — disconnects the client and stops the container.
 
-Both `New(ctx, image)` and `NewWithT(t, ctx, image)` constructors are provided;
-`NewWithT` binds the container lifecycle to the test via `t.Cleanup`.
+`New(ctx)` uses the default image (`images.MongoDB`), and
+`NewWithImage(ctx, image)` starts a container with a specific image. The
+corresponding T-bound variants `NewWithT(t, ctx)` and
+`NewWithImageT(t, ctx, image)` bind the container lifecycle to the test via
+`t.Cleanup`.
 
 ## Usage
 
 ```go
-app, err := mongodb.New(ctx, images.MongoDB)
+app, err := mongodb.New(ctx)
 if err != nil {
     // handle error
 }
