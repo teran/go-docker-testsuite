@@ -58,7 +58,17 @@ lint:
 	$(call run-in-modules,golangci-lint run ./...)
 
 fmt:
-	$(call run-in-modules,gofmt -l .)
+	@failed=0; \
+	for m in $(MODULES); do \
+		echo "==> [$$m] gofmt -l"; \
+		out=$$(cd "$$m" && gofmt -l .); \
+		if [ -n "$$out" ]; then \
+			echo "gofmt: unformatted files in $$m:"; \
+			echo "$$out"; \
+			failed=1; \
+		fi; \
+	done; \
+	exit $$failed
 
 tidy:
 	$(call run-in-modules,go mod tidy)
