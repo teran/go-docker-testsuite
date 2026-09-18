@@ -243,13 +243,26 @@ func (s *k3sTestSuite) TestLoadBalancerService() {
 	// On Docker Desktop for macOS, bridge IPs are not directly reachable
 	// from the host. Instead, we verify by curling the service from inside
 	// the k3s container using Docker exec.
+	//
+	// The LoadBalancer data path (klipper-lb svclb hostNetwork pod + kube-proxy
+	// DNAT rules) may not be fully up the moment the ingress IP is assigned, so
+	// the first wget can transiently fail (connection refused / timeout). Retry
+	// until it succeeds, then assert the final connectivity.
 	svcURL := fmt.Sprintf("http://%s:%d/", lbIngressHost, echoPort)
-	res, err := s.app.(*k3s).c.Exec(s.ctx, []string{"wget", "-qO-", "--timeout=10", svcURL})
-	r.NoError(err, "should be able to reach the service from inside the container")
-	if err := res.Error(); err != nil {
-		r.NoError(err, "wget should exit zero")
-	}
-	output := res.Stdout
+	var output []byte
+	err = wait.PollUntilContextTimeout(s.ctx, 1*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		res, execErr := s.app.(*k3s).c.Exec(ctx, []string{"wget", "-qO-", "--timeout=10", svcURL})
+		if execErr != nil {
+			return false, execErr
+		}
+		if execErr := res.Error(); execErr != nil {
+			// Non-zero exit — data path not ready yet; retry.
+			return false, nil
+		}
+		output = res.Stdout
+		return true, nil
+	})
+	r.NoError(err, "wget should exit zero when reaching the service from inside the container")
 
 	s.T().Logf("Service response (from inside container): %s", strings.TrimSpace(string(output)))
 	s.T().Log("Successfully verified HTTP communication through LoadBalancer service")
