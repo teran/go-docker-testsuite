@@ -895,15 +895,26 @@ func (c *container) Close(ctx context.Context) error {
 		Timeout: new(int(timeout / time.Second)),
 	})
 	if err != nil {
-		return err
+		log.WithError(err).Debugf("error stopping container %s; removing anyway", c.containerID)
 	}
 
-	err = c.cli.ContainerRemove(ctx, c.containerID, dockerContainer.RemoveOptions{
+	// Always attempt removal (with Force so a still-running container is
+	// killed), even if the graceful stop failed. Otherwise a stop error
+	// (e.g. an expired context) would leave the container behind.
+	removeErr := c.cli.ContainerRemove(ctx, c.containerID, dockerContainer.RemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	})
+
 	if err != nil {
-		return err
+		if removeErr != nil {
+			return errors.Wrapf(err, "error stopping container %s (additionally failed to remove: %s)", c.containerID, removeErr)
+		}
+		return errors.Wrapf(err, "error stopping container %s", c.containerID)
+	}
+
+	if removeErr != nil {
+		return errors.Wrapf(removeErr, "error removing container %s", c.containerID)
 	}
 
 	return nil
