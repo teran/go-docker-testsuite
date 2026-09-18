@@ -702,6 +702,9 @@ func (c *container) copyFiles(ctx context.Context) error {
 		if f.Size < 0 {
 			return errors.Errorf("file %q has negative size %d", f.Destination, f.Size)
 		}
+		if f.Content == nil {
+			return errors.Errorf("file %q has nil content", f.Destination)
+		}
 	}
 
 	log.WithFields(log.Fields{
