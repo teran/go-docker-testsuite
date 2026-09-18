@@ -133,14 +133,24 @@ func New(ctx context.Context, image string) (Mongo, error) {
 
 	// Belt-and-braces: the log line may appear slightly before the driver can
 	// actually complete a round-trip, so also ping until it succeeds.
+	ready := false
 	for i := 0; i < 30; i++ {
 		if err := client.Ping(ctx, nil); err == nil {
+			ready = true
 			break
 		}
 
 		log.Debug("MongoDB is not ready yet. Awaiting for ping to pass ...")
 
-		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "context cancelled while waiting for MongoDB ping")
+		case <-time.After(time.Second):
+		}
+	}
+
+	if !ready {
+		return nil, errors.New("MongoDB did not become ready: driver ping did not succeed within the retry window")
 	}
 
 	started = true
