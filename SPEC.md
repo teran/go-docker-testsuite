@@ -506,6 +506,20 @@ contains a `replace` directive. During development, application `go.mod`
 files carry a local `replace => ../..` (so a checkout builds against the
 unpublished core); this `replace` is removed before the module is released.
 
+**Cross-module compatibility between releases.** Because each application
+`require`s the core at a concrete version, a core change that breaks an
+application's API would silently diverge released applications from the
+current core. To keep all modules mutually compatible between tags:
+
+- The repository builds and tests **all modules together** through the
+  workspace (`go.work`) — e.g. `go build ./...` / `go test ./...` on the
+  whole workspace. This catches a core change that breaks an application in
+  the same workspace, so compatibility is enforced continuously on every PR
+  rather than only at release time.
+- Core changes that break an application-facing API require a **major**
+  version bump of the core (`v2.0.0`), and applications are updated
+  deliberately to the new core version.
+
 ### Image resolution
 
 - `IMAGE_PREFIX` env var prepends a registry mirror to all image references.

@@ -78,7 +78,11 @@ other languages cannot be accepted.
     release/tag the core before any application** that depends on the new core
     version (applications `require` the core at a concrete version).
     Tag scheme: core `v<version>`, applications `applications/<name>/v<version>`
-    on the same commit via `make tag <version>`.
+    on the same commit via `make tag <version>`. Keep all modules mutually
+    compatible between releases: a core change that breaks an application API
+    requires a major core bump, and the workspace (go.work) is built/tested as
+    a whole so a core change that breaks an application fails CI immediately
+    rather than at release time.
 
 ## Project structure
 
