@@ -492,22 +492,27 @@ The repository is a **multi-module workspace** (testcontainers-go style):
   — each a standalone Go module that imports only the core (leaf nodes; they
   never import each other).
 
-The core and each application live on **independent release cycles** and are
-tagged separately with Go's prefixed-submodule tag scheme:
+All modules share a **single version number**, tagged separately with Go's
+prefixed-submodule tag scheme:
 
 - core: `v1.6.0`
-- application: `applications/redis/v1.3.0`
+- application: `applications/redis/v1.6.0`
 
 Because an application `require`s the core at a concrete version, the **core
 tag must exist before** an application that depends on it can be tagged and
-fetched. Release order is therefore: publish the core, then applications.
+fetched. Release order is therefore: publish the core first, then applications
+(each merged and tagged in its own PR).
 
 Tag from the repo root with the Makefile:
 
 ```sh
 make tag-core v1.6.0                # tag only the core
-make tag-app redis v1.3.0           # tag applications/redis
+make tag-app redis v1.6.0           # tag applications/redis (same version)
 ```
+
+A GitHub Release is created for **every module tag** (`release.yml` triggers
+on both `v*` and `applications/*/v*`), so each module gets its own Release
+with auto-generated notes.
 
 During development, application `go.mod` files may carry a local
 `replace github.com/teran/go-docker-testsuite => ../..` so a checkout builds

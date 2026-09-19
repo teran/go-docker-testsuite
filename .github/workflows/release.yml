@@ -4,7 +4,8 @@ name: release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'                 # core module, e.g. v1.6.0
+      - 'applications/*/v*'  # application modules, e.g. applications/redis/v1.6.0
 
 permissions:
   contents: write

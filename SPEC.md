@@ -491,12 +491,23 @@ Tag scheme (Go's prefixed-submodule tags):
 - each application: `applications/<name>/v<version>` (e.g.
   `applications/clickhouse/v1.6.0`)
 
-The core and each application live on **independent release cycles** and are
-tagged separately — they do not share a version number or a single commit.
-Tag from the repo root with `make tag-core v1.6.0` (core only) and
-`make tag-app <name> v1.3.0` (a single application). This is required because
-a `go.mod` can only reference a tag that already exists: an application PR
-cannot require a core version that is not yet tagged.
+The core and each application use a **single shared version number**, but the
+tags are placed **separately** (not atomically): a core tag must already exist
+before an application can require that core version. Release process:
+
+1. Merge core changes first, then tag the core: `make tag-core v1.6.0`.
+2. Merge each application's changes separately, then tag it:
+   `make tag-app <name> v1.6.0` (same version number).
+
+The tags therefore point at different commits (non-atomic), which is Go's
+submodule-tag machinery — an application `require`s the core by version, not
+by commit, so this is fine. This is required because a `go.mod` can only
+reference a tag that already exists: an application PR cannot require a core
+version that is not yet tagged.
+
+**GitHub Releases.** A GitHub Release is created for **every module** tag:
+`release.yml` triggers on both `v*` (core) and `applications/*/v*`
+(applications), so each module gets its own Release with auto-generated notes.
 
 **Release order — the core is always first.** Every application module
 `require`s the core at a concrete version, and a `replace` on a relative path

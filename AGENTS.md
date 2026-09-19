@@ -70,13 +70,13 @@ other languages cannot be accepted.
     workspace (testcontainers-go style): the root is the core module and each
     `applications/<name>` is its own Go module with its own `go.mod`.
     Applications are leaf nodes — they import the core (`wait`/`images`/
-    `internal`) and never other applications. The core and each application
-    live on **independent release cycles**, tagged separately with Go's
-    prefixed-submodule scheme: core `v<version>`, application
-    `applications/<name>/v<version>`. Because an application `require`s the
-    core at a concrete version, **always release/tag the core before any
-    application** that depends on it — so the core tag must already exist
-    before an application PR can reference it. During development an
+    `internal`) and never other applications. All modules share a **single
+    version number**, tagged separately with Go's prefixed-submodule scheme:
+    core `v<version>`, application `applications/<name>/v<version>`. Because
+    an application `require`s the core at a concrete version, **always
+    release/tag the core before any application** that depends on it — so the
+    core tag must already exist before an application PR can reference it.
+    During development an
     application `go.mod` may carry `replace github.com/teran/go-docker-testsuite
     => ../..` so a checkout builds before the core is published; this
     `replace` **must be removed before release** (`make lint` fails if any
