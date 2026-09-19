@@ -24,18 +24,19 @@ MODULES := $(shell find . -name go.mod -not -path './.git/*' -not -path './tools
 # The root module is "."; application modules are everything else.
 APP_MODULES := $(filter-out .,$(MODULES))
 
-.PHONY: help build test vet lint fmt tidy tag work
+.PHONY: help build test vet lint fmt tidy tag-core tag-app work
 
 help:
 	@echo "go-docker-testsuite multi-module tasks:"
-	@echo "  make build    go build ./... in every module"
-	@echo "  make test     go test ./... in every module"
-	@echo "  make vet      go vet ./... in every module"
-	@echo "  make lint     golangci-lint run ./... + replace-directive check"
-	@echo "  make fmt      gofmt -l in every module"
-	@echo "  make tidy     go mod tidy in every module"
-	@echo "  make tag VER  tag core as VER and apps as applications/<name>/VER"
-	@echo "  make work     (re)write go.work for all modules"
+	@echo "  make build       go build ./... in every module"
+	@echo "  make test        go test ./... in every module"
+	@echo "  make vet         go vet ./... in every module"
+	@echo "  make lint        golangci-lint run ./... + replace-directive check"
+	@echo "  make fmt         gofmt -l in every module"
+	@echo "  make tidy        go mod tidy in every module"
+	@echo "  make tag-core V  tag only the core as V (e.g. v1.6.0)"
+	@echo "  make tag-app N V tag applications/N as applications/N/V"
+	@echo "  make work        (re)write go.work for all modules"
 
 # Run a shell command inside every module directory.
 define run-in-modules
@@ -95,22 +96,33 @@ fmt:
 tidy:
 	$(call run-in-modules,go mod tidy)
 
-# `make tag <version>` — version is taken from MAKECMDGOALS (e.g. `make tag v1.5.0`).
-# The core module is tagged as <version>; each application module is tagged as
-# applications/<name>/<version>, matching Go's prefixed-submodule tag scheme.
-TAG_ARG := $(filter-out tag,$(MAKECMDGOALS))
+# Tagging for the multi-module layout. The core and each application live on
+# independent release cycles, so their tags are placed separately (a core tag
+# must exist before an application that requires it can be tagged):
+#
+#   make tag-core v1.6.0              tag only the core as v1.6.0
+#   make tag-app redis v1.3.0         tag applications/redis as applications/redis/v1.3.0
+#
+# Each target consumes its arguments from MAKECMDGOALS.
 
-# Catch-all so a bare argument like `make tag v1.5.0` doesn't error as an
-# unknown target; it is consumed by the tag target above.
+# Catch-all so bare arguments like `make tag-core v1.6.0` don't error as
+# unknown targets; they are consumed by the tag targets below.
 %:
 	@true
 
-tag:
-	@test -n "$(TAG_ARG)" || (echo "usage: make tag <version>  (e.g. make tag v1.5.0)"; exit 1)
-	@echo "==> tagging core as $(TAG_ARG)"
-	git tag "$(TAG_ARG)"
-	@for m in $(APP_MODULES); do \
-		echo "==> tagging $$m as $$m/$(TAG_ARG)"; \
-		git tag "$$m/$(TAG_ARG)"; \
-	done
+tag-core:
+	@test -n "$(filter-out tag-core,$(MAKECMDGOALS))" || (echo "usage: make tag-core <version>  (e.g. make tag-core v1.6.0)"; exit 1)
+	@echo "==> tagging core as $(filter-out tag-core,$(MAKECMDGOALS))"
+	git tag "$(filter-out tag-core,$(MAKECMDGOALS))"
+
+tag-app:
+	@test "$$(echo '$(MAKECMDGOALS)' | wc -w)" -ge 3 || (echo "usage: make tag-app <name> <version>  (e.g. make tag-app redis v1.3.0)"; exit 1)
+	@set -- $(filter-out tag-app,$(MAKECMDGOALS)); \
+	app=$$1; ver=$$2; \
+	if [ ! -d "applications/$$app" ]; then \
+		echo "no such application: $$app"; \
+		exit 1; \
+	fi; \
+	echo "==> tagging applications/$$app as applications/$$app/$$ver"; \
+	git tag "applications/$$app/$$ver"
 
