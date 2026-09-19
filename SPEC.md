@@ -476,6 +476,71 @@ packages keep their existing signatures to avoid breaking consumers; new
 wrappers must follow the four-constructor contract above (see the MongoDB
 wrapper, which was aligned to it).
 
+### Multi-module layout & release order
+
+The repository is a **multi-module workspace** in the testcontainers-go
+style: the root is the core module (`github.com/teran/go-docker-testsuite`),
+and each application under `applications/<name>` is its **own Go module**
+(`.../applications/<name>`) with its own `go.mod`. `wait`, `images`, and
+`internal` stay in the core; application modules only import the core (plus
+`wait`/`images`/`internal`) and never each other (leaf nodes).
+
+Tag scheme (Go's prefixed-submodule tags):
+
+- core: `v<version>` (e.g. `v1.6.0`)
+- each application: `applications/<name>/v<version>` (e.g.
+  `applications/clickhouse/v1.6.0`)
+
+The core and each application use a **single shared version number**, but the
+tags are placed **separately** (not atomically): a core tag must already exist
+before an application can require that core version. Release process:
+
+1. Merge core changes first, then tag the core: `make tag-core v1.6.0`.
+2. Merge each application's changes separately, then tag it:
+   `make tag-app <name> v1.6.0` (same version number).
+
+The tags therefore point at different commits (non-atomic), which is Go's
+submodule-tag machinery — an application `require`s the core by version, not
+by commit, so this is fine. This is required because a `go.mod` can only
+reference a tag that already exists: an application PR cannot require a core
+version that is not yet tagged.
+
+**GitHub Releases.** A GitHub Release is created for **every module** tag:
+`release.yml` triggers on both `v*` (core) and `applications/*/v*`
+(applications), so each module gets its own Release with auto-generated notes.
+
+**Release order — the core is always first.** Every application module
+`require`s the core at a concrete version, and a `replace` on a relative path
+is needed until the core is published (it is also what lets a checkout build
+before then). Therefore the core **must** be tagged and published before any
+application that depends on the new core version. Practically this means each
+module is released in its own PR, and the core PR lands first.
+
+**Consumers.** `go get github.com/teran/go-docker-testsuite/applications/<name>@latest`
+resolves the application's most recent tag (`applications/<name>/v...`) and
+transitively pulls the core at the version the application requires. Consumers
+pull only the application modules they need, so their `go.mod`/`go.sum` do not
+carry every database/queue client dependency.
+
+`make lint` enforces publication readiness by failing if any `go.mod`
+contains a `replace` directive. During development, application `go.mod`
+files carry a local `replace => ../..` (so a checkout builds against the
+unpublished core); this `replace` is removed before the module is released.
+
+**Cross-module compatibility between releases.** Because each application
+`require`s the core at a concrete version, a core change that breaks an
+application's API would silently diverge released applications from the
+current core. To keep all modules mutually compatible between tags:
+
+- The repository builds and tests **all modules together** through the
+  workspace (`go.work`) — e.g. `go build ./...` / `go test ./...` on the
+  whole workspace. This catches a core change that breaks an application in
+  the same workspace, so compatibility is enforced continuously on every PR
+  rather than only at release time.
+- Core changes that break an application-facing API require a **major**
+  version bump of the core (`v2.0.0`), and applications are updated
+  deliberately to the new core version.
+
 ### Image resolution
 
 - `IMAGE_PREFIX` env var prepends a registry mirror to all image references.

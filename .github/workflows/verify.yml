@@ -34,13 +34,12 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "23.x"
-      - name: Install dependencies
-        run: go mod download
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          only-new-issues: false
-          working-directory: .
+      - name: Install golangci-lint (v2)
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: golangci-lint (all modules) + replace check
+        run: make lint
 
   govulncheck:
     runs-on: ubuntu-latest
@@ -91,8 +90,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
-      - name: Install dependencies
-        run: go mod download
       - id: split
         run: |
           MATRIX=$(go run ./tools/cmd/split_test_groups)
@@ -113,13 +110,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
-      - name: Install dependencies
-        run: go mod download
+      - name: Generate go.work
+        run: make work
       - name: Run tests
         env:
           IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
         run: |
-          go test -v -race -p 1 -timeout=${{ matrix.timeout_minutes }}m ${{ matrix.packages }}
+          go test -v -race -p 1 -timeout=${{ matrix.timeout_minutes }}m ./... || exit 1
+        working-directory: ${{ matrix.dir }}
 
   build:
     runs-on: ubuntu-latest
@@ -131,5 +129,9 @@ jobs:
           go-version: '1.26.x'
       - name: Install dependencies
         run: go mod download
-      - name: Test with the Go CLI
-        run: go build ./...
+      - name: Build all modules
+        run: make build
+      - name: Vet all modules
+        run: make vet
+      - name: Format check (gofmt)
+        run: make fmt
