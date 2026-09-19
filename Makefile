@@ -31,7 +31,7 @@ help:
 	@echo "  make build    go build ./... in every module"
 	@echo "  make test     go test ./... in every module"
 	@echo "  make vet      go vet ./... in every module"
-	@echo "  make lint     golangci-lint run ./... in every module"
+	@echo "  make lint     golangci-lint run ./... + replace-directive check"
 	@echo "  make fmt      gofmt -l in every module"
 	@echo "  make tidy     go mod tidy in every module"
 	@echo "  make tag VER  tag core as VER and apps as applications/<name>/VER"
@@ -56,6 +56,17 @@ vet:
 
 lint:
 	$(call run-in-modules,golangci-lint run ./...)
+	@echo "==> checking for replace directives in go.mod"
+	@failed=0; \
+	for f in $$(find . -name go.mod -not -path './.git/*'); do \
+		repl=$$(sed -n 's/^[[:space:]]*replace[[:space:]].*$$/&/p' "$$f"); \
+		if [ -n "$$repl" ]; then \
+			echo "$$f: replace directives are not allowed (breaks go get for consumers):"; \
+			echo "$$repl"; \
+			failed=1; \
+		fi; \
+	done; \
+	exit $$failed
 
 fmt:
 	@failed=0; \
