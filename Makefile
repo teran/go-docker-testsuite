@@ -65,7 +65,7 @@ test: work
 vet: work
 	$(call run-in-modules,go vet ./...)
 
-lint:
+lint: work
 	$(call run-in-modules,golangci-lint run ./...)
 	@echo "==> checking for replace directives in go.mod"
 	@failed=0; \
