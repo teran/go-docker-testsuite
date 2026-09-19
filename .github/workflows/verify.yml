@@ -34,6 +34,11 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "23.x"
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          only-new-issues: false
+          args: --version
       - name: golangci-lint (all modules) + replace check
         run: make lint
 
