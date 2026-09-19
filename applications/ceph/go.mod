@@ -8,10 +8,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.12.1
-	github.com/teran/go-docker-testsuite v1.5.0
+	github.com/teran/go-docker-testsuite v1.6.0
 )
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.3 // indirect
@@ -37,7 +38,6 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/term v0.5.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect

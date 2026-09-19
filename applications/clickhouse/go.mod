@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.12.1
-	github.com/teran/go-docker-testsuite v1.5.0
+	github.com/teran/go-docker-testsuite v1.6.0
 )
 
 require (
