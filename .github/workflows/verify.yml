@@ -34,13 +34,8 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: "23.x"
-      - name: Install dependencies
-        run: go mod download
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          only-new-issues: false
-          working-directory: .
+      - name: golangci-lint (all modules) + replace check
+        run: make lint
 
   govulncheck:
     runs-on: ubuntu-latest
@@ -82,31 +77,8 @@ jobs:
             exit 1
           fi
 
-  discover:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.split.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.x'
-      - name: Install dependencies
-        run: go mod download
-      - id: split
-        run: |
-          MATRIX=$(go run ./tools/cmd/split_test_groups)
-          echo "Discovered matrix:"
-          echo "$MATRIX"
-          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
-
   tests:
-    needs: discover
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
     runs-on: ubuntu-latest
-    name: tests (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -115,11 +87,10 @@ jobs:
           go-version: '1.26.x'
       - name: Install dependencies
         run: go mod download
-      - name: Run tests
+      - name: Run tests (all modules)
         env:
           IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
-        run: |
-          go test -v -race -p 1 -timeout=${{ matrix.timeout_minutes }}m ${{ matrix.packages }}
+        run: make test
 
   build:
     runs-on: ubuntu-latest

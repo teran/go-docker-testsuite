@@ -45,13 +45,24 @@ define run-in-modules
 	done
 endef
 
-build:
+# (Re)write go.work so all modules are visible to tooling during development.
+work:
+	@go work init 2>/dev/null; \
+	for m in $(MODULES); do \
+		go work use "$$m"; \
+	done
+	@echo "go.work updated with: $(MODULES)"
+
+# build/test/vet operate across modules that require the core at a concrete
+# (possibly not-yet-published) version, so they first generate go.work to make
+# every module resolve the core and its siblings locally.
+build: work
 	$(call run-in-modules,go build ./...)
 
-test:
+test: work
 	$(call run-in-modules,go test ./...)
 
-vet:
+vet: work
 	$(call run-in-modules,go vet ./...)
 
 lint:
@@ -103,10 +114,3 @@ tag:
 		git tag "$$m/$(TAG_ARG)"; \
 	done
 
-# (Re)write go.work so all modules are visible to tooling during development.
-work:
-	@go work init 2>/dev/null; \
-	for m in $(MODULES); do \
-		go work use "$$m"; \
-	done
-	@echo "go.work updated with: $(MODULES)"

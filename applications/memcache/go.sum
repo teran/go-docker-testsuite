@@ -61,6 +61,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/teran/echo-grpc-server v0.0.4 h1:tMHVi4nX3XJ0ktoDNTTsfQEGT9hB6miGeOjl1gjhOHQ=
 github.com/teran/echo-grpc-server v0.0.4/go.mod h1:8nvZquvu0ks0VrXHbexVjJsci3wXyY4UpWip4iGREBU=
+github.com/teran/go-docker-testsuite v1.5.0 h1:fgOsGEWmMXpJoHUEqPVUyz0Tv7pErNaTQ/egAFqCY6k=
+github.com/teran/go-docker-testsuite v1.5.0/go.mod h1:pN5BP6OFuHANBwMnfM2akHA8hlLQg68QQHDxGplSiPs=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 h1:8tvICD4vSTOOsNrsI4Ljf6C+6UKvpTEH5XY3JMoyPoo=
