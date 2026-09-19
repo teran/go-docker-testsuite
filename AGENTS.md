@@ -66,6 +66,24 @@ other languages cannot be accepted.
    form without a default image; the pre-existing `mysql`/`redis`/`vault`
    packages keep their legacy signatures for backward compatibility.
 
+10. **Multi-module & release order**: The repository is a multi-module
+    workspace (testcontainers-go style): the root is the core module and each
+    `applications/<name>` is its own Go module with its own `go.mod`.
+    Applications are leaf nodes — they import the core (`wait`/`images`/
+    `internal`) and never other applications. During development an
+    application `go.mod` may carry `replace github.com/teran/go-docker-testsuite
+    => ../..` so a checkout builds before the core is published; this
+    `replace` **must be removed before release** (`make lint` fails if any
+    `go.mod` has a `replace`). Release each module in its own PR, and **always
+    release/tag the core before any application** that depends on the new core
+    version (applications `require` the core at a concrete version).
+    Tag scheme: core `v<version>`, applications `applications/<name>/v<version>`
+    on the same commit via `make tag <version>`. Keep all modules mutually
+    compatible between releases: a core change that breaks an application API
+    requires a major core bump, and the workspace (go.work) is built/tested as
+    a whole so a core change that breaks an application fails CI immediately
+    rather than at release time.
+
 ## Project structure
 
 ```text
