@@ -487,12 +487,16 @@ and each application under `applications/<name>` is its **own Go module**
 
 Tag scheme (Go's prefixed-submodule tags):
 
-- core: `v<version>` (e.g. `v1.5.0`)
+- core: `v<version>` (e.g. `v1.6.0`)
 - each application: `applications/<name>/v<version>` (e.g.
-  `applications/clickhouse/v1.5.0`)
+  `applications/clickhouse/v1.6.0`)
 
-All module tags for one release are placed on the **same commit** by
-`make tag v1.5.0`.
+The core and each application live on **independent release cycles** and are
+tagged separately — they do not share a version number or a single commit.
+Tag from the repo root with `make tag-core v1.6.0` (core only) and
+`make tag-app <name> v1.3.0` (a single application). This is required because
+a `go.mod` can only reference a tag that already exists: an application PR
+cannot require a core version that is not yet tagged.
 
 **Release order — the core is always first.** Every application module
 `require`s the core at a concrete version, and a `replace` on a relative path
@@ -500,6 +504,12 @@ is needed until the core is published (it is also what lets a checkout build
 before then). Therefore the core **must** be tagged and published before any
 application that depends on the new core version. Practically this means each
 module is released in its own PR, and the core PR lands first.
+
+**Consumers.** `go get github.com/teran/go-docker-testsuite/applications/<name>@latest`
+resolves the application's most recent tag (`applications/<name>/v...`) and
+transitively pulls the core at the version the application requires. Consumers
+pull only the application modules they need, so their `go.mod`/`go.sum` do not
+carry every database/queue client dependency.
 
 `make lint` enforces publication readiness by failing if any `go.mod`
 contains a `replace` directive. During development, application `go.mod`
