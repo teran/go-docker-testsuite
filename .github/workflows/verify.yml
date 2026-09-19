@@ -77,20 +77,43 @@ jobs:
             exit 1
           fi
 
-  tests:
+  discover:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.split.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - id: split
+        run: |
+          MATRIX=$(go run ./tools/cmd/split_test_groups)
+          echo "Discovered matrix:"
+          echo "$MATRIX"
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+
+  tests:
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    name: tests (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
-      - name: Install dependencies
-        run: go mod download
-      - name: Run tests (all modules)
+      - name: Generate go.work
+        run: make work
+      - name: Run tests
         env:
           IMAGE_PREFIX: ${{ vars.IMAGE_PREFIX }}
-        run: make test
+        run: |
+          go test -v -race -p 1 -timeout=${{ matrix.timeout_minutes }}m ./... || exit 1
+        working-directory: ${{ matrix.dir }}
 
   build:
     runs-on: ubuntu-latest
