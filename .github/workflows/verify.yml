@@ -35,10 +35,9 @@ jobs:
         with:
           version: "23.x"
       - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          only-new-issues: false
-          args: --version
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: golangci-lint (all modules) + replace check
         run: make lint
 
