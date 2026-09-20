@@ -37,6 +37,13 @@ type Ceph interface {
 	SecretKey() string
 	// Client returns an S3 client (AWS SDK v2) configured for the RGW.
 	Client() (*s3.Client, error)
+	// Container returns the wrapped docker.Container, for Group membership and
+	// low-level operations.
+	Container() docker.Container
+	// ExecCeph runs `ceph <args...>` inside the container and returns the raw
+	// ExecResult. A non-zero exit code is not treated as an error — callers
+	// decide how to interpret it.
+	ExecCeph(ctx context.Context, args ...string) (*docker.ExecResult, error)
 }
 
 type ceph struct {
@@ -248,4 +255,18 @@ func (c *ceph) waitReady(ctx context.Context) error {
 
 func (c *ceph) Close(ctx context.Context) error {
 	return c.c.Close(ctx)
+}
+
+// Container returns the wrapped docker.Container, for Group membership and
+// low-level operations.
+func (c *ceph) Container() docker.Container {
+	return c.c
+}
+
+// ExecCeph runs `ceph <args...>` inside the container and returns the raw
+// ExecResult. The exit code is intentionally not checked here: a non-zero exit
+// is not necessarily an error in the testsuite, so callers decide how to
+// interpret the result.
+func (c *ceph) ExecCeph(ctx context.Context, args ...string) (*docker.ExecResult, error) {
+	return c.c.Exec(ctx, append([]string{"ceph"}, args...))
 }

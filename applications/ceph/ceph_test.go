@@ -66,3 +66,34 @@ func TestCeph(t *testing.T) {
 	r.NoError(err)
 	r.Equal(testPayload, string(resp))
 }
+
+// TestCephExecCLI sanity-checks the ExecCeph wrapper by running a few read-only
+// ceph commands inside the container. It only asserts the exit code and that
+// `ceph -s` produces non-empty stdout; it does not assert a HEALTH_OK state
+// because the single-OSD demo cluster may legitimately report a WARN.
+func TestCephExecCLI(t *testing.T) {
+	r := require.New(t)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+
+	app, err := NewWithImage(ctx, imageUnderTest())
+	r.NoError(err)
+	defer func() { _ = app.Close(ctx) }()
+
+	// `ceph -s` must succeed and emit status output.
+	status, err := app.ExecCeph(ctx, "-s")
+	r.NoError(err)
+	r.Equal(0, status.ExitCode, "ceph -s stderr: %s", string(status.Stderr))
+	r.NotEmpty(status.Stdout, "ceph -s produced no stdout")
+
+	// `ceph config dump` must succeed.
+	conf, err := app.ExecCeph(ctx, "config", "dump")
+	r.NoError(err)
+	r.Equal(0, conf.ExitCode, "ceph config dump stderr: %s", string(conf.Stderr))
+
+	// `ceph device ls` may produce empty output, but the command must succeed.
+	devices, err := app.ExecCeph(ctx, "device", "ls")
+	r.NoError(err)
+	r.Equal(0, devices.ExitCode, "ceph device ls stderr: %s", string(devices.Stderr))
+}
