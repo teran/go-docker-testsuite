@@ -24,11 +24,11 @@ tags are on the current 10.x stable line and are multi-arch.
 Three config files are injected at construction via `WithFiles` /
 `FileFromBytes`, all as `root:root` (Uid/Gid `0`) with mode `0644`:
 
-| Destination            | Content                                                        |
-| ---------------------- | -------------------------------------------------------------- |
-| `/etc/frr/daemons`     | `zebra` + `mgmtd` always `yes`; `bgpd` (and any daemons enabled via `WithDaemons`) `yes`, the rest `no` |
-| `/etc/frr/vtysh.conf`  | `service integrated-vtysh-config`                              |
-| `/etc/frr/frr.conf`    | the primary artifact — the injected protocol configuration     |
+| Destination           | Content                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `/etc/frr/daemons`    | `zebra` + `mgmtd` always `yes`; `bgpd` (and any daemons enabled via `WithDaemons`) `yes`, the rest `no` |
+| `/etc/frr/vtysh.conf` | `service integrated-vtysh-config`                                                                       |
+| `/etc/frr/frr.conf`   | the primary artifact — the injected protocol configuration                                              |
 
 By default only `bgpd` runs (plus the always-on `zebra` and `mgmtd`). Enable
 additional protocol daemons with `WithDaemons`:
@@ -115,7 +115,7 @@ appB := frr.NewFromContainer(cB)
 > BGP config to exchange prefixes without a route-map/prefix-list. Also note
 > FRR does not auto-resolve a hostname BGP neighbor — resolve the peer's
 > container-name alias to its IP on the internal network (e.g. `getent hosts
-> <name>`) and configure the neighbor by that IP. See
+<name>`) and configure the neighbor by that IP. See
 > `applications/frr/frr_group_test.go` for a complete two-peer example.
 
 ## Usage
