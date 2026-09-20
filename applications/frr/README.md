@@ -46,7 +46,7 @@ bfdd, fabricd, vrrpd, pathd`. An unknown daemon name is a build-time error.
 The no-config constructors (`New`, `NewWithImage`, ...) inject a default
 `frr.conf`:
 
-```
+```text
 hostname frr
 frr defaults traditional
 ```
