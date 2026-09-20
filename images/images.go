@@ -4,6 +4,10 @@ const (
 	// EchoServer image
 	EchoServer = "ghcr.io/teran/echo-grpc-server:latest"
 
+	// FRR (FRRouting) image tag: official images moved to Quay.io (Docker Hub
+	// stops at v8.4.1). Pinned to the current 10.x stable line; multi-arch.
+	FRR = "quay.io/frrouting/frr:10.7.1"
+
 	// Memcache image tag
 	Memcache = "index.docker.io/library/memcached:1.6.29-alpine3.20"
 
