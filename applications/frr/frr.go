@@ -9,10 +9,13 @@
 package frr
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,9 +30,6 @@ import (
 const (
 	containerName = "frr"
 
-	// bgpPort is the TCP port BGP peers connect to.
-	bgpPort = 179
-
 	// defaultWaitTimeout bounds WaitForBGPRoute / WaitForBGPRouteWithdrawn
 	// when the caller's ctx carries no deadline.
 	defaultWaitTimeout = 30 * time.Second
@@ -37,27 +37,6 @@ const (
 
 const defaultFRRConfig = `hostname frr
 frr defaults traditional
-`
-
-const daemonsConfig = `zebra=yes
-bgpd=yes
-ospfd=no
-ospf6d=no
-ripd=no
-ripngd=no
-isisd=no
-pimd=no
-ldpd=no
-nhrpd=no
-eigrpd=no
-babeld=no
-sharpd=no
-pbrd=no
-staticd=no
-bfdd=no
-fabricd=no
-vrrpd=no
-pathd=no
 `
 
 const vtyshConfig = `service integrated-vtysh-config
@@ -124,7 +103,9 @@ type FRR interface {
 type Option func(*frrConfig)
 
 type frrConfig struct {
-	image string
+	image   string
+	name    string
+	daemons []string
 }
 
 // WithImage overrides the FRR image (used by versioned integration tests).
@@ -134,14 +115,76 @@ func WithImage(image string) Option {
 	}
 }
 
+// WithContainerName sets the FRR container name (and its DNS alias on a
+// docker.Group internal network). Two peers in the same Group must use
+// distinct names so they can peer by name. Default: "frr".
+func WithContainerName(name string) Option {
+	return func(c *frrConfig) {
+		c.name = name
+	}
+}
+
+// knownDaemons lists the FRR protocol daemons, in the order they are emitted
+// into /etc/frr/daemons. zebra and mgmtd are always force-enabled by the image
+// and lead the list.
+var knownDaemons = []string{
+	"zebra", "mgmtd", "bgpd", "ospfd", "ospf6d", "ripd", "ripngd", "isisd",
+	"pimd", "ldpd", "nhrpd", "eigrpd", "babeld", "sharpd", "pbrd", "staticd",
+	"bfdd", "fabricd", "vrrpd", "pathd",
+}
+
+// WithDaemons sets the FRR protocol daemons to enable. Every other known
+// daemon is set to "no" in /etc/frr/daemons. zebra and mgmtd are always
+// force-enabled by the image. Default: []string{"bgpd"}.
+func WithDaemons(daemons ...string) Option {
+	return func(c *frrConfig) {
+		c.daemons = daemons
+	}
+}
+
 type frrImpl struct {
 	c docker.Container
 }
 
 func defaultConfig() *frrConfig {
 	return &frrConfig{
-		image: images.FRR,
+		image:   images.FRR,
+		name:    containerName,
+		daemons: []string{"bgpd"},
 	}
+}
+
+// renderDaemonsConfig renders the /etc/frr/daemons file. zebra and mgmtd are
+// always enabled; every other known daemon is set to "yes" when listed in
+// enabled, else "no". All known daemons are emitted in order. An unknown
+// daemon name is a build-time error.
+func renderDaemonsConfig(enabled []string) ([]byte, error) {
+	want := make(map[string]bool, len(enabled))
+	known := make(map[string]bool, len(knownDaemons))
+	for _, d := range knownDaemons {
+		known[d] = true
+	}
+
+	for _, d := range enabled {
+		if !known[d] {
+			return nil, errors.Errorf("unknown FRR daemon %q (known: %v)", d, knownDaemons)
+		}
+		want[d] = true
+	}
+
+	var buf bytes.Buffer
+	for _, d := range knownDaemons {
+		if d == "zebra" || d == "mgmtd" {
+			fmt.Fprintf(&buf, "%s=yes\n", d)
+			continue
+		}
+		if want[d] {
+			fmt.Fprintf(&buf, "%s=yes\n", d)
+		} else {
+			fmt.Fprintf(&buf, "%s=no\n", d)
+		}
+	}
+	return buf.Bytes(), nil
 }
 
 // New starts an FRR container with the default (no-config) configuration.
@@ -180,6 +223,66 @@ func NewWithConfigT(t *testing.T, ctx context.Context, config []byte, opts ...Op
 	return startFRR(ctx, t, config, opts...)
 }
 
+// NewContainer builds an unstarted FRR container for membership in a
+// docker.Group. It does not start the container; the Group's Run() does.
+// Obtain the typed FRR interface afterwards with NewFromContainer.
+func NewContainer(ctx context.Context, config []byte, opts ...Option) (docker.Container, error) {
+	return buildFRR(ctx, nil, config, opts...)
+}
+
+// NewContainerT is NewContainer bound to a *testing.T: the container's
+// lifecycle is tied to the test and cleaned up automatically via t.Cleanup.
+func NewContainerT(t *testing.T, ctx context.Context, config []byte, opts ...Option) (docker.Container, error) {
+	return buildFRR(ctx, t, config, opts...)
+}
+
+// NewFromContainer wraps a running FRR docker.Container as the typed FRR
+// interface — e.g. one created by NewContainer and started by a docker.Group.
+func NewFromContainer(c docker.Container) FRR {
+	return &frrImpl{c: c}
+}
+
+// buildFRR constructs (but does not run) an FRR container. It applies the
+// options to the default config, renders /etc/frr/daemons from the enabled
+// daemons, injects the three config files, sets the privileged lifecycle
+// options, and uses empty port bindings (no host port exposure — FRR peers
+// over the docker network). The container name/alias is cfg.name.
+func buildFRR(ctx context.Context, t *testing.T, config []byte, opts ...Option) (docker.Container, error) {
+	cfg := defaultConfig()
+	for _, o := range opts {
+		o(cfg)
+	}
+
+	daemonsCfg, err := renderDaemonsConfig(cfg.daemons)
+	if err != nil {
+		return nil, err
+	}
+
+	files := []docker.File{
+		// daemons + vtysh.conf must be root:root (Uid/Gid 0) mode 0644 so
+		// vtysh can drive the daemons. frr.conf is the primary injected
+		// artifact.
+		docker.FileFromBytes(daemonsDestination, daemonsCfg, 0644, 0, 0),
+		docker.FileFromBytes(vtyshDestination, []byte(vtyshConfig), 0644, 0, 0),
+		docker.FileFromBytes(configDestination, config, 0644, 0, 0),
+	}
+
+	// FRR needs privilege to set up routes (zebra installs routes via
+	// netlink). No host port is exposed: BGP peers connect to the container
+	// over the docker network instead.
+	lifecycleOpts := []docker.LifecycleOption{
+		docker.WithFiles(files...),
+		docker.WithHostConfig(docker.WithPrivileged()),
+	}
+
+	bindings := docker.NewPortBindings()
+
+	if t != nil {
+		return docker.NewContainerWithLifecycleT(t, cfg.name, cfg.image, nil, docker.NewEnvironment(), bindings, lifecycleOpts...)
+	}
+	return docker.NewContainerWithLifecycle(cfg.name, cfg.image, nil, docker.NewEnvironment(), bindings, lifecycleOpts...)
+}
+
 // startFRR builds, runs and waits for the FRR container to be ready.
 func startFRR(ctx context.Context, t *testing.T, config []byte, opts ...Option) (FRR, error) {
 	cfg := defaultConfig()
@@ -187,32 +290,7 @@ func startFRR(ctx context.Context, t *testing.T, config []byte, opts ...Option) 
 		o(cfg)
 	}
 
-	files := []docker.File{
-		// daemons + vtysh.conf must be root:root (Uid/Gid 0) mode 0644 so
-		// vtysh can drive the daemons. frr.conf is the primary injected
-		// artifact.
-		docker.FileFromBytes(daemonsDestination, []byte(daemonsConfig), 0644, 0, 0),
-		docker.FileFromBytes(vtyshDestination, []byte(vtyshConfig), 0644, 0, 0),
-		docker.FileFromBytes(configDestination, config, 0644, 0, 0),
-	}
-
-	// FRR needs to bind port 179 and set up routes, which requires privilege.
-	lifecycleOpts := []docker.LifecycleOption{
-		docker.WithFiles(files...),
-		docker.WithHostConfig(docker.WithPrivileged()),
-	}
-
-	bindings := docker.NewPortBindings().PortDNAT(docker.ProtoTCP, bgpPort)
-
-	var (
-		c   docker.Container
-		err error
-	)
-	if t != nil {
-		c, err = docker.NewContainerWithLifecycleT(t, containerName, cfg.image, nil, docker.NewEnvironment(), bindings, lifecycleOpts...)
-	} else {
-		c, err = docker.NewContainerWithLifecycle(containerName, cfg.image, nil, docker.NewEnvironment(), bindings, lifecycleOpts...)
-	}
+	c, err := buildFRR(ctx, t, config, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating frr container")
 	}
@@ -233,14 +311,48 @@ func startFRR(ctx context.Context, t *testing.T, config []byte, opts ...Option) 
 	f := &frrImpl{c: c}
 
 	// Exec-based readiness: FRR logs to syslog rather than stdout/stderr, so
-	// docker logs is empty. A successful `show bgp summary` via vtysh proves
-	// the daemons are up and vtysh can reach them.
-	if err := wait.Wait(ctx, c, wait.ForCommand([]string{"vtysh", "-c", "show bgp summary"})); err != nil {
+	// docker logs is empty. A successful `show version` via vtysh proves the
+	// management plane is up; it is daemon-agnostic, so it also works for
+	// configs that run a single daemon (e.g. ospfd-only).
+	if err := wait.Wait(ctx, c, wait.ForCommand([]string{"vtysh", "-c", "show version"})); err != nil {
 		return nil, errors.Wrap(err, "error waiting for frr readiness")
+	}
+
+	// `show version` succeeds before a freshly-enabled daemon (e.g. bgpd) has
+	// finished starting. Wait for each daemon the caller enabled to appear in
+	// `show daemons` so the returned wrapper can be used immediately.
+	if err := waitForDaemons(ctx, c, cfg.daemons); err != nil {
+		return nil, errors.Wrap(err, "error waiting for frr daemons")
 	}
 
 	started = true
 	return f, nil
+}
+
+// waitForDaemons blocks until every requested daemon appears in `show daemons`.
+// vtysh/management-plane failures and a daemon that has not started yet are
+// treated as transient (retried), so the wait is robust against daemon startup
+// races regardless of which protocol daemons are enabled.
+func waitForDaemons(ctx context.Context, c docker.Container, daemons []string) error {
+	strategy := func(ctx context.Context, _ wait.Target) (bool, error) {
+		res, err := c.Exec(ctx, []string{"vtysh", "-c", "show daemons"})
+		if err != nil || res.ExitCode != 0 {
+			return false, nil // not ready yet — retry
+		}
+
+		running := make(map[string]bool, 8)
+		for _, f := range strings.Fields(string(res.Stdout)) {
+			running[f] = true
+		}
+		for _, d := range daemons {
+			if !running[d] {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	return wait.Wait(ctx, c, strategy)
 }
 
 // runVTY runs a command through FRR's vtysh and returns its stdout.

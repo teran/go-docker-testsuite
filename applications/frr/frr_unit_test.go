@@ -353,6 +353,86 @@ func TestRunVTYNonZeroExit(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// renderDaemonsConfig / WithDaemons
+// ---------------------------------------------------------------------------
+
+// TestRenderDaemonsConfigDefault pins the default (bgpd-only) daemons file:
+// zebra and mgmtd always yes, bgpd yes, every other known daemon no.
+func TestRenderDaemonsConfigDefault(t *testing.T) {
+	r := require.New(t)
+
+	out, err := renderDaemonsConfig([]string{"bgpd"})
+	r.NoError(err)
+
+	want := `zebra=yes
+mgmtd=yes
+bgpd=yes
+ospfd=no
+ospf6d=no
+ripd=no
+ripngd=no
+isisd=no
+pimd=no
+ldpd=no
+nhrpd=no
+eigrpd=no
+babeld=no
+sharpd=no
+pbrd=no
+staticd=no
+bfdd=no
+fabricd=no
+vrrpd=no
+pathd=no
+`
+	r.Equal(want, string(out))
+}
+
+// TestRenderDaemonsConfigOSPFD enables ospfd (and keeps bgpd) and verifies both
+// are set to yes while zebra/mgmtd remain forced on.
+func TestRenderDaemonsConfigOSPFD(t *testing.T) {
+	r := require.New(t)
+
+	out, err := renderDaemonsConfig([]string{"bgpd", "ospfd"})
+	r.NoError(err)
+
+	s := string(out)
+	r.Contains(s, "zebra=yes")
+	r.Contains(s, "mgmtd=yes")
+	r.Contains(s, "bgpd=yes")
+	r.Contains(s, "ospfd=yes")
+	r.Contains(s, "ospf6d=no")
+}
+
+// TestRenderDaemonsConfigUnknownDaemon verifies an unknown daemon name is a
+// build-time error.
+func TestRenderDaemonsConfigUnknownDaemon(t *testing.T) {
+	r := require.New(t)
+
+	_, err := renderDaemonsConfig([]string{"bogus"})
+	r.Error(err)
+	r.Contains(err.Error(), `unknown FRR daemon "bogus"`)
+}
+
+// TestWithDaemons ensures the Option sets the daemons slice on the config.
+func TestWithDaemons(t *testing.T) {
+	r := require.New(t)
+
+	cfg := defaultConfig()
+	WithDaemons("bgpd", "ospfd", "bfdd")(cfg)
+	r.Equal([]string{"bgpd", "ospfd", "bfdd"}, cfg.daemons)
+}
+
+// TestWithContainerName ensures the Option sets the container name.
+func TestWithContainerName(t *testing.T) {
+	r := require.New(t)
+
+	cfg := defaultConfig()
+	WithContainerName("frr-a")(cfg)
+	r.Equal("frr-a", cfg.name)
+}
+
+// ---------------------------------------------------------------------------
 // waitForBGPRoute semantics
 // ---------------------------------------------------------------------------
 
@@ -403,6 +483,75 @@ func TestWaitForBGPRouteWithdrawn(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	err = f.WaitForBGPRoute(ctx, "192.0.2.0/24")
+	r.Error(err)
+	r.True(errors.Is(err, context.Canceled))
+}
+
+// ---------------------------------------------------------------------------
+// waitForDaemons
+// ---------------------------------------------------------------------------
+//
+// waitForDaemons polls `show daemons` via wait.Wait until every requested
+// daemon is present. Its strategy treats both an exec failure and a missing
+// daemon as "not ready yet" (it returns (false, nil) and retries), so the
+// only error it can return is the one surfaced by the wait loop — which, with
+// a cancelled ctx, is context.Canceled. The tests below pin that real
+// behavior: a present daemon returns nil; a missing daemon and an exec
+// failure both bail fast with context.Canceled when driven by a cancelled ctx.
+
+// TestWaitForDaemonsPresent verifies waitForDaemons returns nil as soon as the
+// requested daemon appears in `show daemons`.
+func TestWaitForDaemonsPresent(t *testing.T) {
+	r := require.New(t)
+
+	f := &fakeContainer{
+		results: map[string]*docker.ExecResult{
+			"show daemons": {Stdout: []byte("zebra mgmtd bgpd staticd")},
+		},
+	}
+
+	err := waitForDaemons(context.Background(), f, []string{"bgpd"})
+	r.NoError(err)
+}
+
+// TestWaitForDaemonsMissingDaemon verifies that when the awaited daemon is
+// absent from `show daemons` the strategy stays not-ready and the wait bails
+// fast with context.Canceled on a cancelled ctx (instead of retrying for the
+// full 60s default timeout).
+func TestWaitForDaemonsMissingDaemon(t *testing.T) {
+	r := require.New(t)
+
+	// Output does not contain "bgpd", so the strategy stays not-ready.
+	f := &fakeContainer{
+		results: map[string]*docker.ExecResult{
+			"show daemons": {Stdout: []byte("zebra mgmtd staticd")},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := waitForDaemons(ctx, f, []string{"bgpd"})
+	r.Error(err)
+	r.True(errors.Is(err, context.Canceled))
+}
+
+// TestWaitForDaemonsExecFailure verifies that an exec failure is treated as
+// transient (the strategy retries rather than surfacing the raw exec error),
+// and that with a cancelled ctx waitForDaemons surfaces context.Canceled.
+func TestWaitForDaemonsExecFailure(t *testing.T) {
+	r := require.New(t)
+
+	sentinel := errors.New("exec boom")
+	f := &fakeContainer{execErr: sentinel}
+
+	// A cancelled ctx makes the wait bail fast with context.Canceled. The
+	// strategy swallows the underlying exec error (retries), so it is the
+	// wait loop's ctx error — not the sentinel — that is surfaced.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := waitForDaemons(ctx, f, []string{"bgpd"})
 	r.Error(err)
 	r.True(errors.Is(err, context.Canceled))
 }
