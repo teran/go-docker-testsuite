@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.9'
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
@@ -48,12 +48,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.9'
       - name: Install dependencies
         run: go mod download
       - name: govulncheck
         run: |
-          go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > govulncheck.json
+          go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -json ./... > govulncheck.json
           # Fail only on vulnerabilities that actually have a fix available.
           # Findings with "Fixed in: N/A" (no patched version for the affected
           # module yet, e.g. current github.com/docker/docker SDK) are reported
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.9'
       - id: split
         run: |
           MATRIX=$(go run ./tools/cmd/split_test_groups)
@@ -109,7 +109,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.9'
       - name: Generate go.work
         run: make work
       - name: Run tests
@@ -126,7 +126,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.9'
       - name: Install dependencies
         run: go mod download
       - name: Build all modules
