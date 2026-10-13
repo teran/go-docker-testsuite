@@ -53,7 +53,7 @@ jobs:
         run: go mod download
       - name: govulncheck
         run: |
-          go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > govulncheck.json
+          go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -json ./... > govulncheck.json
           # Fail only on vulnerabilities that actually have a fix available.
           # Findings with "Fixed in: N/A" (no patched version for the affected
           # module yet, e.g. current github.com/docker/docker SDK) are reported
